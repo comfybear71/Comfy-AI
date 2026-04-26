@@ -50,18 +50,39 @@ export function ChatInterface() {
     setMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      })
+
+      const data = await res.json()
+
       const assistantMessage: MessageProps = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: generateResponse(content),
+        content: data.content || data.error || "No response from model.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }
       setMessages((prev) => [...prev, assistantMessage])
+    } catch (err: any) {
+      const errorMessage: MessageProps = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `**Error:** ${err.message || "Failed to reach the LLM."}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
       setIsLoading(false)
-    }, 1500)
-  }, [])
+    }
+  }, [messages])
 
   const handleSuggestion = useCallback(
     (suggestion: string) => {
