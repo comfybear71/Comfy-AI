@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useState, useCallback } from "react"
+import React, { useState, useCallback, useRef } from "react"
 import { Sidebar } from "@/components/sidebar"
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { MessageProps } from "./message"
-import { Sparkles, ArrowRight } from "lucide-react"
+import { Sparkles, ArrowRight, ChevronDown, Zap, Code, Brain } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 const DEMO_CHATS = [
   { id: "1", title: "React component patterns", date: "Today" },
@@ -20,69 +21,126 @@ const WELCOME_SUGGESTIONS = [
   "Debug this TypeScript error",
 ]
 
+const MODELS = [
+  {
+    id: "llama3.1:8b",
+    name: "Llama 3.1 8B",
+    description: "General purpose",
+    icon: Brain,
+  },
+  {
+    id: "codellama:7b",
+    name: "CodeLlama 7B",
+    description: "Code generation",
+    icon: Code,
+  },
+  {
+    id: "llama3.2:3b",
+    name: "Llama 3.2 3B",
+    description: "Fast & light",
+    icon: Zap,
+  },
+]
+
 export function ChatInterface() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeChat, setActiveChat] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageProps[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].id)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   const handleNewChat = useCallback(() => {
     setActiveChat(null)
     setMessages([])
     setSidebarOpen(false)
+    abortRef.current?.abort()
   }, [])
 
   const handleSelectChat = useCallback((id: string) => {
     setActiveChat(id)
-    // In a real app, fetch messages for this chat
     setMessages([])
     setSidebarOpen(false)
   }, [])
 
-  const handleSend = useCallback(async (content: string) => {
-    const userMessage: MessageProps = {
-      id: Date.now().toString(),
-      role: "user",
-      content,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    }
+  const handleSend = useCallback(
+    async (content: string) => {
+      const userMessage: MessageProps = {
+        id: Date.now().toString(),
+        role: "user",
+        content,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
 
-    setMessages((prev) => [...prev, userMessage])
-    setIsLoading(true)
+      setMessages((prev) => [...prev, userMessage])
+      setIsLoading(true)
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      })
-
-      const data = await res.json()
-
+      const assistantId = (Date.now() + 1).toString()
       const assistantMessage: MessageProps = {
-        id: (Date.now() + 1).toString(),
+        id: assistantId,
         role: "assistant",
-        content: data.content || data.error || "No response from model.",
+        content: "",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (err: any) {
-      const errorMessage: MessageProps = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `**Error:** ${err.message || "Failed to reach the LLM."}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+
+      try {
+        const abort = new AbortController()
+        abortRef.current = abort
+
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: abort.signal,
+          body: JSON.stringify({
+            model: selectedModel,
+            messages: [...messages, userMessage].map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+            stream: true,
+          }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || `HTTP ${res.status}`)
+        }
+
+        const reader = res.body?.getReader()
+        if (!reader) throw new Error("No response body")
+
+        const decoder = new TextDecoder()
+        let fullContent = ""
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          fullContent += chunk
+
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
+          )
+        }
+      } catch (err: any) {
+        if (err.name === "AbortError") return
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `**Error:** ${err.message || "Failed to reach the LLM."}` }
+              : m
+          )
+        )
+      } finally {
+        setIsLoading(false)
+        abortRef.current = null
       }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [messages])
+    },
+    [messages, selectedModel]
+  )
 
   const handleSuggestion = useCallback(
     (suggestion: string) => {
@@ -90,6 +148,9 @@ export function ChatInterface() {
     },
     [handleSend]
   )
+
+  const selectedModelInfo = MODELS.find((m) => m.id === selectedModel) || MODELS[0]
+  const SelectedIcon = selectedModelInfo.icon
 
   return (
     <div className="flex h-screen bg-cream-50">
@@ -103,6 +164,64 @@ export function ChatInterface() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="border-b border-cream-200 bg-white px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-claude-orange flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-semibold text-sm text-claude-dark">Comfy AI</span>
+          </div>
+
+          {/* Model Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setModelMenuOpen(!modelMenuOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cream-50 border border-cream-200 hover:bg-cream-100 transition-colors text-sm"
+            >
+              <SelectedIcon className="w-4 h-4 text-claude-orange" />
+              <span className="text-claude-dark">{selectedModelInfo.name}</span>
+              <ChevronDown className={cn("w-3.5 h-3.5 text-claude-gray transition-transform", modelMenuOpen && "rotate-180")} />
+            </button>
+
+            {modelMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setModelMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl border border-cream-200 shadow-lg py-1 z-50">
+                  {MODELS.map((model) => {
+                    const Icon = model.icon
+                    return (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model.id)
+                          setModelMenuOpen(false)
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-cream-50 transition-colors",
+                          selectedModel === model.id && "bg-cream-50"
+                        )}
+                      >
+                        <Icon className={cn("w-4 h-4 shrink-0", selectedModel === model.id ? "text-claude-orange" : "text-claude-gray")} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-claude-dark">{model.name}</div>
+                          <div className="text-xs text-claude-gray">{model.description}</div>
+                        </div>
+                        {selectedModel === model.id && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-claude-orange" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4">
             <div className="text-center max-w-2xl">
@@ -139,128 +258,4 @@ export function ChatInterface() {
       </div>
     </div>
   )
-}
-
-function generateResponse(userMessage: string): string {
-  const lower = userMessage.toLowerCase()
-
-  if (lower.includes("react")) {
-    return `## React Server Components
-
-React Server Components (RSC) allow components to render exclusively on the server. This enables:
-
-- **Zero bundle size** for server-only code
-- **Direct backend access** without API layers
-- **Improved initial page load**
-
-\`\`\`tsx
-// Server Component
-async function BlogPosts() {
-  const posts = await db.posts.findMany();
-
-  return (
-    <ul>
-      {posts.map(post => (
-        <li key={post.id}>{post.title}</li>
-      ))}
-    </ul>
-  );
-}
-\`\`\`
-
-Key differences from Client Components:
-| Feature | Server | Client |
-|---------|--------|--------|
-| Render location | Server | Browser |
-| Can use hooks | ❌ | ✅ |
-| Can use \`useState\` | ❌ | ✅ |
-| Access DB directly | ✅ | ❌ |`
-  }
-
-  if (lower.includes("python") || lower.includes("data")) {
-    return `Here's a Python script for data visualization using matplotlib:
-
-\`\`\`python
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Generate sample data
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-
-# Create the plot
-fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(x, y, label='sin(x)', color='#d97757', linewidth=2)
-ax.fill_between(x, y, alpha=0.3, color='#d97757')
-
-ax.set_xlabel('X Axis')
-ax.set_ylabel('Y Axis')
-ax.set_title('Sine Wave Visualization')
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-plt.tight_layout()
-plt.show()
-\`\`\`
-
-This creates a beautiful sine wave plot with a warm color scheme matching your UI! 🎨`
-  }
-
-  if (lower.includes("api")) {
-    return `## REST API Design Principles
-
-When designing a REST API, follow these guidelines:
-
-### 1. Use Nouns, Not Verbs
-\`\`\`
-GET  /users      ✅
-GET  /getUsers   ❌
-\`\`\`
-
-### 2. Proper HTTP Status Codes
-- \`200\` OK
-- \`201\` Created
-- \`400\` Bad Request
-- \`401\` Unauthorized
-- \`404\` Not Found
-- \`500\` Server Error
-
-### 3. Versioning
-\`\`\`
-/api/v1/users
-/api/v2/users
-\`\`\`
-
-### 4. Pagination
-\`\`\`
-GET /users?page=1&limit=20
-\`\`\`
-
-Would you like me to elaborate on any of these principles?`
-  }
-
-  return `I'd be happy to help with that! Here's a general response structure:
-
-1. **Understand the problem** - Break it down into smaller parts
-2. **Research solutions** - Look for established patterns
-3. **Implement iteratively** - Start with a minimal working version
-4. **Refactor and optimize** - Improve code quality
-
-\`\`\`typescript
-function solveProblem(input: string): string {
-  // Step 1: Validate input
-  if (!input) return "No input provided";
-
-  // Step 2: Process
-  const result = input
-    .split('')
-    .reverse()
-    .join('');
-
-  // Step 3: Return
-  return result;
-}
-\`\`\`
-
-Let me know if you'd like me to dive deeper into any specific aspect!`
 }
