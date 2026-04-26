@@ -4,6 +4,11 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, model = "llama3.1:8b", stream = true } = await req.json()
 
+    const systemPrompt = process.env.SYSTEM_PROMPT
+    const messagesWithSystem = systemPrompt?.trim()
+      ? [{ role: "system", content: systemPrompt.trim() }, ...messages]
+      : messages
+
     const apiUrl = process.env.OLLAMA_API_URL
     if (!apiUrl) {
       return NextResponse.json(
@@ -24,7 +29,7 @@ export async function POST(req: NextRequest) {
       headers,
       body: JSON.stringify({
         model,
-        messages: messages.map((m: any) => ({
+        messages: messagesWithSystem.map((m: any) => ({
           role: m.role,
           content: m.content,
         })),
