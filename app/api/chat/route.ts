@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { trimMessagesToFit } from "@/lib/tokens"
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +9,12 @@ export async function POST(req: NextRequest) {
     const messagesWithSystem = systemPrompt?.trim()
       ? [{ role: "system", content: systemPrompt.trim() }, ...messages]
       : messages
+
+    // Safety: trim messages to fit context window
+    const { trimmed, wasTrimmed, estimatedTokens } = trimMessagesToFit(
+      messagesWithSystem,
+      model
+    )
 
     const apiUrl = process.env.OLLAMA_API_URL
     if (!apiUrl) {
@@ -29,7 +36,7 @@ export async function POST(req: NextRequest) {
       headers,
       body: JSON.stringify({
         model,
-        messages: messagesWithSystem.map((m: any) => ({
+        messages: trimmed.map((m: any) => ({
           role: m.role,
           content: m.content,
         })),

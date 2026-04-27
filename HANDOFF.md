@@ -27,7 +27,8 @@
 ## 2026-04-27 — Session: GitHub Agent Phase 2
 
 **Branch:** `claude/github-agent-phase2`
-**Status:** Ready for review
+**Status:** Merged, tagged `v0.5.0`, deployed
+**Merged by:** comfybear71 (Stuart French)
 
 ### Work Done
 - Added workflow trigger + status API routes
