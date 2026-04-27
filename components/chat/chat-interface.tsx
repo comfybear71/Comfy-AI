@@ -98,6 +98,18 @@ export function ChatInterface() {
     url: string
   } | null>(null)
   const [repoPanelOpen, setRepoPanelOpen] = useState(false)
+  const [pinnedRepos, setPinnedRepos] = useState<string[]>([])
+  const [repoSearch, setRepoSearch] = useState("")
+
+  // Load prefs from Neon on mount
+  useEffect(() => {
+    fetch("/api/user/prefs")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.pinnedRepos) setPinnedRepos(data.pinnedRepos)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleNewChat = useCallback(() => {
     setActiveChat(null)
@@ -110,6 +122,20 @@ export function ChatInterface() {
     setActiveChat(id)
     setMessages([])
     setSidebarOpen(false)
+  }, [])
+
+  const handleTogglePin = useCallback((repoId: number) => {
+    const id = String(repoId)
+    setPinnedRepos((prev) => {
+      const next = prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+      // Save to Neon
+      fetch("/api/user/prefs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinnedRepos: next }),
+      }).catch(() => {})
+      return next
+    })
   }, [])
 
   const handleConnectGitHub = useCallback(async () => {
@@ -323,7 +349,7 @@ export function ChatInterface() {
   const SelectedIcon = selectedModelInfo.icon
 
   return (
-    <div className="flex h-screen bg-cream-50">
+    <div className="flex h-screen bg-cream-50 dark:bg-gray-900">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -338,16 +364,20 @@ export function ChatInterface() {
         selectedRepo={selectedRepo}
         onConnectGitHub={handleConnectGitHub}
         onSelectRepo={handleSelectRepo}
+        pinnedRepos={pinnedRepos}
+        onTogglePin={handleTogglePin}
+        repoSearch={repoSearch}
+        onRepoSearch={setRepoSearch}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-cream-200 bg-white px-4 py-2 pl-14 lg:pl-4 flex items-center justify-between">
+        <div className="border-b border-cream-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 pl-16 lg:pl-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-claude-orange flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-sm text-claude-dark">Comfy AI</span>
+            <span className="font-semibold text-sm text-claude-dark dark:text-gray-100">Comfy AI</span>
             {selectedRepo && (
               <>
                 <span className="text-claude-gray">/</span>

@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import {
   Plus,
   MessageSquare,
@@ -15,9 +15,15 @@ import {
   FolderOpen,
   Loader2,
   AlertCircle,
+  Moon,
+  Sun,
+  Search,
+  Pin,
+  PinOff,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useTheme } from "./theme-provider"
 
 export interface GitHubRepoItem {
   id: number
@@ -43,6 +49,10 @@ interface SidebarProps {
   selectedRepo?: GitHubRepoItem | null
   onConnectGitHub?: () => void
   onSelectRepo?: (repo: GitHubRepoItem) => void
+  pinnedRepos?: string[]
+  onTogglePin?: (repoId: number) => void
+  repoSearch?: string
+  onRepoSearch?: (query: string) => void
 }
 
 export function Sidebar({
@@ -59,7 +69,23 @@ export function Sidebar({
   selectedRepo,
   onConnectGitHub,
   onSelectRepo,
+  pinnedRepos = [],
+  onTogglePin,
+  repoSearch = "",
+  onRepoSearch,
 }: SidebarProps) {
+  const { resolvedTheme, toggleTheme } = useTheme()
+  const [showAll, setShowAll] = useState(false)
+
+  const filteredRepos = repos?.filter((r) =>
+    r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
+    r.full_name.toLowerCase().includes(repoSearch.toLowerCase())
+  )
+
+  const pinned = filteredRepos?.filter((r) => pinnedRepos.includes(String(r.id))) || []
+  const unpinned = filteredRepos?.filter((r) => !pinnedRepos.includes(String(r.id))) || []
+  const displayRepos = showAll ? [...pinned, ...unpinned] : [...pinned, ...unpinned].slice(0, 10)
+
   return (
     <>
       {/* Mobile overlay */}
@@ -73,7 +99,7 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#f5f5f0] border-r border-cream-200 flex flex-col transform transition-transform duration-200 ease-in-out",
+          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:hidden"
         )}
       >
@@ -92,7 +118,7 @@ export function Sidebar({
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
-            <span className="font-semibold text-lg tracking-tight">Comfy AI</span>
+            <span className="font-semibold text-lg tracking-tight dark:text-gray-100">Comfy AI</span>
           </div>
           <Button
             variant="ghost"
@@ -107,7 +133,7 @@ export function Sidebar({
         <div className="px-3 mb-2">
           <Button
             onClick={onNewChat}
-            className="w-full justify-start gap-2 bg-white border border-cream-200 hover:bg-cream-100 text-claude-dark shadow-sm"
+            className="w-full justify-start gap-2 bg-white dark:bg-gray-700 border border-cream-200 dark:border-gray-600 hover:bg-cream-100 dark:hover:bg-gray-600 text-claude-dark dark:text-gray-100 shadow-sm"
           >
             <Plus className="w-4 h-4" />
             New chat
@@ -117,66 +143,113 @@ export function Sidebar({
         <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin space-y-4">
           {/* GitHub Section */}
           <div>
-            <div className="text-xs font-medium text-claude-gray uppercase tracking-wider mb-2 px-2 flex items-center justify-between">
+            <div className="text-xs font-medium text-claude-gray dark:text-gray-400 uppercase tracking-wider mb-2 px-2 flex items-center justify-between">
               <span>GitHub</span>
+              <span className="text-[10px] normal-case">
+                {pinned.length} / {repos?.length || 0}
+              </span>
             </div>
+
+            {githubConnected && (
+              <div className="px-2 mb-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-claude-gray dark:text-gray-400" />
+                  <input
+                    type="text"
+                    value={repoSearch}
+                    onChange={(e) => onRepoSearch?.(e.target.value)}
+                    placeholder="Filter repos..."
+                    className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg bg-white dark:bg-gray-700 border border-cream-200 dark:border-gray-600 text-claude-dark dark:text-gray-100 placeholder:text-claude-gray/60 focus:outline-none focus:ring-1 focus:ring-claude-orange/30"
+                  />
+                </div>
+              </div>
+            )}
 
             {!githubConnected ? (
               <button
                 onClick={onConnectGitHub}
-                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors bg-white border border-cream-200 hover:border-claude-orange/30 shadow-sm"
+                className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors bg-white dark:bg-gray-700 border border-cream-200 dark:border-gray-600 hover:border-claude-orange/30 shadow-sm"
               >
-                <Github className="w-4 h-4 text-claude-dark shrink-0" />
+                <Github className="w-4 h-4 text-claude-dark dark:text-gray-200 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">Connect to GitHub</div>
-                  <div className="text-xs text-claude-gray">Browse repos and create PRs</div>
+                  <div className="text-sm font-medium dark:text-gray-100">Connect to GitHub</div>
+                  <div className="text-xs text-claude-gray dark:text-gray-400">Browse repos and create PRs</div>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-claude-gray shrink-0" />
+                <ChevronRight className="w-3.5 h-3.5 text-claude-gray dark:text-gray-400 shrink-0" />
               </button>
             ) : reposLoading ? (
-              <div className="flex items-center gap-2 px-2 py-3 text-claude-gray">
+              <div className="flex items-center gap-2 px-2 py-3 text-claude-gray dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span className="text-sm">Loading repos...</span>
               </div>
             ) : reposError ? (
-              <div className="flex items-start gap-2 px-2 py-3 text-red-600 bg-red-50 rounded-lg">
+              <div className="flex items-start gap-2 px-2 py-3 text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="text-xs">{reposError}</span>
               </div>
             ) : (
               <div className="space-y-0.5">
-                {repos?.map((repo) => (
-                  <button
-                    key={repo.id}
-                    onClick={() => onSelectRepo?.(repo)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors",
-                      selectedRepo?.id === repo.id
-                        ? "bg-white shadow-sm border border-cream-200"
-                        : "hover:bg-cream-200/50"
-                    )}
-                  >
-                    <Book className="w-4 h-4 text-claude-gray shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{repo.name}</div>
-                      <div className="text-xs text-claude-gray truncate">
-                        {repo.full_name}
-                      </div>
+                {displayRepos.map((repo) => {
+                  const isPinned = pinnedRepos.includes(String(repo.id))
+                  return (
+                    <div
+                      key={repo.id}
+                      className={cn(
+                        "group flex items-center gap-1 px-2 py-2 rounded-lg text-left transition-colors",
+                        selectedRepo?.id === repo.id
+                          ? "bg-white dark:bg-gray-700 shadow-sm border border-cream-200 dark:border-gray-600"
+                          : "hover:bg-cream-200/50 dark:hover:bg-gray-700/50"
+                      )}
+                    >
+                      <button
+                        onClick={() => onSelectRepo?.(repo)}
+                        className="flex-1 flex items-center gap-3 min-w-0"
+                      >
+                        <Book className="w-4 h-4 text-claude-gray dark:text-gray-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate dark:text-gray-100">{repo.name}</div>
+                          <div className="text-xs text-claude-gray dark:text-gray-400 truncate">
+                            {repo.full_name}
+                          </div>
+                        </div>
+                        {repo.private && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-cream-200 dark:bg-gray-600 rounded text-claude-gray dark:text-gray-300 shrink-0">
+                            Private
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onTogglePin?.(repo.id)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-cream-200 dark:hover:bg-gray-600 rounded transition-all shrink-0"
+                        title={isPinned ? "Unpin" : "Pin"}
+                      >
+                        {isPinned ? (
+                          <Pin className="w-3 h-3 text-claude-orange" />
+                        ) : (
+                          <PinOff className="w-3 h-3 text-claude-gray dark:text-gray-400" />
+                        )}
+                      </button>
                     </div>
-                    {repo.private && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-cream-200 rounded text-claude-gray shrink-0">
-                        Private
-                      </span>
-                    )}
+                  )
+                })}
+                {!showAll && filteredRepos && filteredRepos.length > 10 && (
+                  <button
+                    onClick={() => setShowAll(true)}
+                    className="w-full text-center text-xs text-claude-gray dark:text-gray-400 py-1 hover:text-claude-dark dark:hover:text-gray-200"
+                  >
+                    Show {filteredRepos.length - 10} more...
                   </button>
-                ))}
+                )}
               </div>
             )}
           </div>
 
           {/* Recent Chats */}
           <div>
-            <div className="text-xs font-medium text-claude-gray uppercase tracking-wider mb-2 px-2">
+            <div className="text-xs font-medium text-claude-gray dark:text-gray-400 uppercase tracking-wider mb-2 px-2">
               Recent
             </div>
             <div className="space-y-0.5">
@@ -187,14 +260,14 @@ export function Sidebar({
                   className={cn(
                     "w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors",
                     activeChat === chat.id
-                      ? "bg-white shadow-sm border border-cream-200"
-                      : "hover:bg-cream-200/50"
+                      ? "bg-white dark:bg-gray-700 shadow-sm border border-cream-200 dark:border-gray-600"
+                      : "hover:bg-cream-200/50 dark:hover:bg-gray-700/50"
                   )}
                 >
-                  <MessageSquare className="w-4 h-4 text-claude-gray shrink-0" />
+                  <MessageSquare className="w-4 h-4 text-claude-gray dark:text-gray-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{chat.title}</div>
-                    <div className="text-xs text-claude-gray">{chat.date}</div>
+                    <div className="text-sm font-medium truncate dark:text-gray-100">{chat.title}</div>
+                    <div className="text-xs text-claude-gray dark:text-gray-400">{chat.date}</div>
                   </div>
                 </button>
               ))}
@@ -202,14 +275,27 @@ export function Sidebar({
           </div>
         </div>
 
-        <div className="p-3 border-t border-cream-200 space-y-1">
-          <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-cream-200/50 transition-colors text-left">
-            <Settings className="w-4 h-4 text-claude-gray" />
-            <span className="text-sm">Settings</span>
+        <div className="p-3 border-t border-cream-200 dark:border-gray-700 space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-cream-200/50 dark:hover:bg-gray-700/50 transition-colors text-left"
+          >
+            {resolvedTheme === "dark" ? (
+              <Sun className="w-4 h-4 text-claude-gray dark:text-gray-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-claude-gray dark:text-gray-400" />
+            )}
+            <span className="text-sm dark:text-gray-100">
+              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+            </span>
           </button>
-          <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-cream-200/50 transition-colors text-left">
-            <User className="w-4 h-4 text-claude-gray" />
-            <span className="text-sm">Profile</span>
+          <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-cream-200/50 dark:hover:bg-gray-700/50 transition-colors text-left">
+            <Settings className="w-4 h-4 text-claude-gray dark:text-gray-400" />
+            <span className="text-sm dark:text-gray-100">Settings</span>
+          </button>
+          <button className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-cream-200/50 dark:hover:bg-gray-700/50 transition-colors text-left">
+            <User className="w-4 h-4 text-claude-gray dark:text-gray-400" />
+            <span className="text-sm dark:text-gray-100">Profile</span>
           </button>
         </div>
       </aside>
@@ -220,11 +306,11 @@ export function Sidebar({
         size="icon"
         onClick={onToggle}
         className={cn(
-          "fixed top-4 left-4 z-30 lg:hidden bg-white/80 backdrop-blur-sm border border-cream-200 shadow-sm",
+          "fixed top-2 left-4 z-30 lg:hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-cream-200 dark:border-gray-600 shadow-sm",
           isOpen && "hidden"
         )}
       >
-        <Menu className="w-5 h-5" />
+        <Menu className="w-5 h-5 dark:text-gray-100" />
       </Button>
     </>
   )
