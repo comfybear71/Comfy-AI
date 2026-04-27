@@ -10,9 +10,13 @@ export async function GET(req: NextRequest) {
     const repoName = searchParams.get("repo_name")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100)
 
-    // Debug: log table count
-    const countResult = await getDb().select({ count: sql`count(*)` }).from(webhookEvents)
-    console.log("Webhook events count:", countResult)
+    // Debug: raw SQL count
+    const rawCount = await getDb().execute(sql`SELECT COUNT(*)::int as count FROM webhook_events`)
+    console.log("Raw SQL count:", rawCount)
+
+    // Debug: raw SQL select all
+    const rawRows = await getDb().execute(sql`SELECT id, event_type, action FROM webhook_events ORDER BY created_at DESC`)
+    console.log("Raw SQL rows:", rawRows)
 
     if (repoOwner && repoName) {
       const events = await getDb()
