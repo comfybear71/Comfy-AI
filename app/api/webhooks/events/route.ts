@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getDb } from "@/lib/db"
 import { webhookEvents } from "@/lib/schema"
-import { desc, eq, and } from "drizzle-orm"
+import { desc, eq, and, sql } from "drizzle-orm"
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
     const repoOwner = searchParams.get("repo_owner")
     const repoName = searchParams.get("repo_name")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100)
+
+    // Debug: log table count
+    const countResult = await getDb().select({ count: sql`count(*)` }).from(webhookEvents)
+    console.log("Webhook events count:", countResult)
 
     if (repoOwner && repoName) {
       const events = await getDb()
