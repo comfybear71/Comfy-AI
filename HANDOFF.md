@@ -69,8 +69,31 @@
 - New: `app/api/user/prefs/route.ts`, `lib/db.ts`, `lib/schema.ts`, `lib/tokens.ts`
 - New: `docs/CLAUDE.md`, `docs/SAFETY-RULES.md`, `docs/PROMPTS.md`
 
+---
+
+## 2026-04-27 — Session: Dark Terminal Aesthetic
+
+**Branch:** `claude/handoff-v0.6.0`
+**Status:** Merged, tagged `v0.6.1`, deployed
+**Merged by:** comfybear71 (Stuart French)
+
+### Work Done
+- Dark terminal aesthetic redesign across all chat components
+- User messages align **right** with green bubble (`bg-emerald-600`)
+- AI messages align **left** with dark bubble (`bg-[#161b22]`, `border-gray-700`)
+- Active repo badge in header is now a green badge with cornered border
+- Updated backgrounds to `#0d1117` / `#161b22` with emerald accents
+
+### Files Changed
+- `components/chat/message.tsx`
+- `components/chat/message-list.tsx`
+- `components/chat/chat-input.tsx`
+- `components/chat/chat-interface.tsx`
+- `components/file-viewer.tsx`
+- `components/pr-modal.tsx`
+- `components/pr-status-banner.tsx`
+
 ### Notes for Next Session
 - Google Auth login (under Profile)
-- Custom UI style direction (move away from Claude look)
 - Multi-screenshot upload (needs vision model on Ollama)
 - Phase 3: GitHub App webhooks
