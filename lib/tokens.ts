@@ -3,14 +3,20 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
-export function estimateMessageTokens(messages: { role: string; content: string }[]): number {
-  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0) // +4 per message for role overhead
+export function estimateMessageTokens(messages: { role: string; content: string; images?: string[] }[]): number {
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4 + estimateImageTokens(m.images), 0) // +4 per message for role overhead
+}
+
+// Images cost roughly 1000 tokens each in vision models
+export function estimateImageTokens(images?: string[]): number {
+  return (images?.length || 0) * 1000
 }
 
 const CONTEXT_LIMITS: Record<string, number> = {
   "llama3.1:8b": 8192,
   "codellama:7b": 16384,
   "llama3.2:3b": 128000,
+  "llava:7b": 4096,
 }
 
 const SAFETY_MARGIN = 500 // tokens reserved for response
@@ -20,9 +26,9 @@ export function getContextLimit(model: string): number {
 }
 
 export function trimMessagesToFit(
-  messages: { role: string; content: string }[],
+  messages: { role: string; content: string; images?: string[] }[],
   model: string
-): { trimmed: { role: string; content: string }[]; wasTrimmed: boolean; estimatedTokens: number } {
+): { trimmed: { role: string; content: string; images?: string[] }[]; wasTrimmed: boolean; estimatedTokens: number } {
   const limit = getContextLimit(model)
   const maxInputTokens = limit - SAFETY_MARGIN
 

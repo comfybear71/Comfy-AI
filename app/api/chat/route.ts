@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
         messages: trimmed.map((m: any) => ({
           role: m.role,
           content: m.content,
+          ...(m.images ? { images: m.images } : {}),
         })),
         stream,
       }),

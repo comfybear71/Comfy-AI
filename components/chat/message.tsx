@@ -11,6 +11,7 @@ export interface MessageProps {
   id: string
   role: "user" | "assistant"
   content: string
+  images?: string[]
   timestamp?: string
 }
 
@@ -55,7 +56,7 @@ function CodeBlock({ children, className, ...props }: any) {
   )
 }
 
-export function Message({ role, content, timestamp }: MessageProps) {
+export function Message({ role, content, images, timestamp }: MessageProps) {
   const isUser = role === "user"
 
   return (
@@ -95,6 +96,19 @@ export function Message({ role, content, timestamp }: MessageProps) {
             </span>
           )}
         </div>
+
+        {images && images.length > 0 && (
+          <div className="flex gap-2 mb-2 flex-wrap">
+            {images.map((img, idx) => (
+              <img
+                key={idx}
+                src={`data:image/png;base64,${img}`}
+                alt={`Upload ${idx + 1}`}
+                className="h-24 w-24 object-cover rounded-lg border border-gray-700"
+              />
+            ))}
+          </div>
+        )}
 
         <div className="prose prose-sm max-w-none prose-invert">
           <ReactMarkdown
