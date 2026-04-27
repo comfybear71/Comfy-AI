@@ -15,6 +15,7 @@ import {
   Zap,
   Code,
   Brain,
+  Eye,
   Github,
   FolderOpen,
   FileCode,
@@ -56,6 +57,12 @@ const MODELS = [
     name: "Llama 3.2 3B",
     description: "Fast & light",
     icon: Zap,
+  },
+  {
+    id: "llava:7b",
+    name: "LLaVA 7B",
+    description: "Vision + language",
+    icon: Eye,
   },
 ]
 
@@ -240,11 +247,41 @@ export function ChatInterface() {
   }, [])
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, images?: string[]) => {
+      let enrichedContent = content
+
+      // Auto-detect URLs and fetch content
+      const urlRegex = /https?:\/\/[^\s\)\]\>\"]+/g
+      const urls = content.match(urlRegex)
+      if (urls && urls.length > 0) {
+        const fetchPromises = urls.map(async (url) => {
+          try {
+            const res = await fetch("/api/fetch-url", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            })
+            if (!res.ok) return null
+            return (await res.json()) as { title: string; content: string; url: string }
+          } catch {
+            return null
+          }
+        })
+        const results = await Promise.all(fetchPromises)
+        const validResults = results.filter(Boolean) as { title: string; content: string; url: string }[]
+        if (validResults.length > 0) {
+          const contextParts = validResults.map(
+            (r) => `--- Content from ${r.url} ---\n${r.content}\n---`
+          )
+          enrichedContent = `${content}\n\n${contextParts.join("\n\n")}`
+        }
+      }
+
       const userMessage: MessageProps = {
         id: Date.now().toString(),
         role: "user",
-        content,
+        content: enrichedContent,
+        images,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -271,12 +308,13 @@ export function ChatInterface() {
         abortRef.current = abort
 
         // Build messages with repo context if active
-        const contextualMessages: { role: string; content: string }[] = [
+        const contextualMessages: { role: string; content: string; images?: string[] }[] = [
           ...messages,
           userMessage,
         ].map((m) => ({
           role: m.role,
           content: m.content,
+          ...(m.images ? { images: m.images } : {}),
         }))
 
         if (selectedRepo) {
