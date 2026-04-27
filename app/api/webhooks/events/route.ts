@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getDb } from "@/lib/db"
 import { webhookEvents } from "@/lib/schema"
-import { desc, eq, and, SQL } from "drizzle-orm"
+import { desc, eq, and } from "drizzle-orm"
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,22 +10,31 @@ export async function GET(req: NextRequest) {
     const repoName = searchParams.get("repo_name")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100)
 
-    const conditions: SQL[] = []
     if (repoOwner && repoName) {
-      conditions.push(eq(webhookEvents.repoOwner, repoOwner))
-      conditions.push(eq(webhookEvents.repoName, repoName))
-    } else if (repoOwner) {
-      conditions.push(eq(webhookEvents.repoOwner, repoOwner))
+      const events = await getDb()
+        .select()
+        .from(webhookEvents)
+        .where(and(eq(webhookEvents.repoOwner, repoOwner), eq(webhookEvents.repoName, repoName)))
+        .orderBy(desc(webhookEvents.createdAt))
+        .limit(limit)
+      return NextResponse.json(events)
     }
 
-    const query = getDb()
+    if (repoOwner) {
+      const events = await getDb()
+        .select()
+        .from(webhookEvents)
+        .where(eq(webhookEvents.repoOwner, repoOwner))
+        .orderBy(desc(webhookEvents.createdAt))
+        .limit(limit)
+      return NextResponse.json(events)
+    }
+
+    const events = await getDb()
       .select()
       .from(webhookEvents)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(webhookEvents.createdAt))
       .limit(limit)
-
-    const events = await query
     return NextResponse.json(events)
   } catch (error: any) {
     console.error("Failed to fetch webhook events:", error)
