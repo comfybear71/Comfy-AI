@@ -54,3 +54,5 @@ Comfy-AI/
 ## License
 
 MIT
+
+Comfy Rules
