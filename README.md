@@ -55,4 +55,4 @@ Comfy-AI/
 
 MIT
 
-Comfy Rules
+Comfy Rules the AI space
