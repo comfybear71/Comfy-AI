@@ -26,12 +26,12 @@ function CodeBlock({ children, className, ...props }: any) {
   }
 
   return (
-    <div className="relative group my-4">
-      <div className="flex items-center justify-between px-4 py-2 bg-[#e1e4e8] rounded-t-lg border-b border-[#d1d5da]">
-        <span className="text-xs text-[#586069] font-mono">{language}</span>
+    <div className="relative group my-4 rounded-lg overflow-hidden border border-gray-700">
+      <div className="flex items-center justify-between px-4 py-2 bg-[#0d1117] border-b border-gray-700">
+        <span className="text-xs text-emerald-400 font-mono">{language}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-[#586069] hover:text-[#24292e] transition-colors"
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-400 transition-colors"
         >
           {copied ? (
             <>
@@ -46,7 +46,7 @@ function CodeBlock({ children, className, ...props }: any) {
           )}
         </button>
       </div>
-      <pre className="!mt-0 !rounded-t-none">
+      <pre className="!mt-0 !rounded-t-none bg-[#0d1117]">
         <code className={className} {...props}>
           {children}
         </code>
@@ -61,52 +61,52 @@ export function Message({ role, content, timestamp }: MessageProps) {
   return (
     <div
       className={cn(
-        "py-6",
-        isUser ? "bg-white" : "bg-cream-50"
+        "py-4",
+        isUser ? "flex justify-end" : "flex justify-start"
       )}
     >
-      <div className="max-w-3xl mx-auto px-4 flex gap-4">
-        <div className="shrink-0 mt-0.5">
+      <div
+        className={cn(
+          "max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl",
+          isUser
+            ? "bg-emerald-600 text-white rounded-br-md"
+            : "bg-[#161b22] border border-gray-700 text-gray-100 rounded-bl-md"
+        )}
+      >
+        <div className="flex items-center gap-2 mb-2">
           <div
             className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center",
-              isUser
-                ? "bg-claude-dark"
-                : "bg-claude-orange"
+              "w-5 h-5 rounded-full flex items-center justify-center shrink-0",
+              isUser ? "bg-emerald-700" : "bg-emerald-500/20"
             )}
           >
             {isUser ? (
-              <User className="w-4 h-4 text-white" />
+              <User className="w-3 h-3 text-white" />
             ) : (
-              <Bot className="w-4 h-4 text-white" />
+              <Bot className="w-3 h-3 text-emerald-400" />
             )}
           </div>
+          <span className={cn("font-semibold text-xs", isUser ? "text-emerald-100" : "text-emerald-400")}>
+            {isUser ? "You" : "Comfy AI"}
+          </span>
+          {timestamp && (
+            <span className={cn("text-[10px]", isUser ? "text-emerald-200/60" : "text-gray-500")}>
+              {timestamp}
+            </span>
+          )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-sm">
-              {isUser ? "You" : "Comfy AI"}
-            </span>
-            {timestamp && (
-              <span className="text-xs text-claude-gray">
-                {timestamp}
-              </span>
-            )}
-          </div>
-
-          <div className="prose prose-sm max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                pre: ({ children }: any) => <>{children}</>,
-                code: CodeBlock,
-              }}
-            >
-              {content}
-            </ReactMarkdown>
-          </div>
+        <div className="prose prose-sm max-w-none prose-invert">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
+            components={{
+              pre: ({ children }: any) => <>{children}</>,
+              code: CodeBlock,
+            }}
+          >
+            {content}
+          </ReactMarkdown>
         </div>
       </div>
     </div>
