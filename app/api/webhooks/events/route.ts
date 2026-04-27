@@ -10,13 +10,12 @@ export async function GET(req: NextRequest) {
     const repoName = searchParams.get("repo_name")
     const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 100)
 
-    // Debug: raw SQL count
+    // Debug: get current database name
+    const dbNameResult = await getDb().execute(sql`SELECT current_database() as db`)
     const rawCount = await getDb().execute(sql`SELECT COUNT(*)::int as count FROM webhook_events`)
-    console.log("Raw SQL count:", rawCount)
 
-    // Debug: raw SQL select all
-    const rawRows = await getDb().execute(sql`SELECT id, event_type, action FROM webhook_events ORDER BY created_at DESC`)
-    console.log("Raw SQL rows:", rawRows)
+    const dbName = (dbNameResult.rows[0] as any)?.db || "unknown"
+    const count = (rawCount.rows[0] as any)?.count || 0
 
     if (repoOwner && repoName) {
       const events = await getDb()
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
         .where(and(eq(webhookEvents.repoOwner, repoOwner), eq(webhookEvents.repoName, repoName)))
         .orderBy(desc(webhookEvents.createdAt))
         .limit(limit)
-      return NextResponse.json(events)
+      return NextResponse.json({ db: dbName, count, events })
     }
 
     if (repoOwner) {
@@ -35,7 +34,7 @@ export async function GET(req: NextRequest) {
         .where(eq(webhookEvents.repoOwner, repoOwner))
         .orderBy(desc(webhookEvents.createdAt))
         .limit(limit)
-      return NextResponse.json(events)
+      return NextResponse.json({ db: dbName, count, events })
     }
 
     const events = await getDb()
@@ -43,7 +42,7 @@ export async function GET(req: NextRequest) {
       .from(webhookEvents)
       .orderBy(desc(webhookEvents.createdAt))
       .limit(limit)
-    return NextResponse.json(events)
+    return NextResponse.json({ db: dbName, count, events })
   } catch (error: any) {
     console.error("Failed to fetch webhook events:", error)
     return NextResponse.json({ error: "Failed to fetch events" }, { status: 500 })
