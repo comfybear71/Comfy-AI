@@ -20,6 +20,11 @@ import {
   Search,
   Pin,
   PinOff,
+  GitPullRequest,
+  GitCommit,
+  CheckCircle,
+  AlertTriangle,
+  Bell,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -33,6 +38,18 @@ export interface GitHubRepoItem {
   private: boolean
   default_branch: string
   owner: { login: string; avatar_url: string }
+}
+
+export interface WebhookEventItem {
+  id: number
+  eventType: string
+  action: string
+  repoOwner: string
+  repoName: string
+  title: string | null
+  payload: any
+  read: boolean
+  createdAt: Date | null
 }
 
 interface SidebarProps {
@@ -53,6 +70,9 @@ interface SidebarProps {
   onTogglePin?: (repoId: number) => void
   repoSearch?: string
   onRepoSearch?: (query: string) => void
+  webhookEvents?: WebhookEventItem[]
+  webhookEventsLoading?: boolean
+  onSelectEvent?: (event: WebhookEventItem) => void
 }
 
 export function Sidebar({
@@ -73,9 +93,49 @@ export function Sidebar({
   onTogglePin,
   repoSearch = "",
   onRepoSearch,
+  webhookEvents = [],
+  webhookEventsLoading = false,
+  onSelectEvent,
 }: SidebarProps) {
   const { resolvedTheme, toggleTheme } = useTheme()
   const [showAll, setShowAll] = useState(false)
+
+  function formatRelativeTime(date: Date | null): string {
+    if (!date) return ""
+    const now = new Date()
+    const diff = Math.floor((now.getTime() - new Date(date).getTime()) / 1000)
+    if (diff < 60) return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    return `${Math.floor(diff / 86400)}d ago`
+  }
+
+  function getEventIcon(event: WebhookEventItem) {
+    if (event.eventType === "pull_request") return GitPullRequest
+    if (event.eventType === "workflow_run") {
+      return event.action === "success" ? CheckCircle : AlertTriangle
+    }
+    if (event.eventType === "push") return GitCommit
+    return Bell
+  }
+
+  function getEventDisplayText(event: WebhookEventItem): string {
+    if (event.eventType === "pull_request") {
+      const prNumber = event.payload?.pull_request?.number
+      const numStr = prNumber ? ` #${prNumber}` : ""
+      return `PR${numStr} ${event.action} in ${event.repoOwner}/${event.repoName}`
+    }
+    if (event.eventType === "workflow_run") {
+      const branch = event.payload?.workflow_run?.head_branch || "unknown"
+      const status = event.action === "success" ? "passed" : "failed"
+      return `CI ${status} on ${branch}`
+    }
+    if (event.eventType === "push") {
+      const branch = event.title || event.payload?.ref?.replace("refs/heads/", "") || "unknown"
+      return `Push to ${branch} in ${event.repoOwner}/${event.repoName}`
+    }
+    return `${event.eventType} in ${event.repoOwner}/${event.repoName}`
+  }
 
   const filteredRepos = repos?.filter((r) =>
     r.name.toLowerCase().includes(repoSearch.toLowerCase()) ||
@@ -243,6 +303,64 @@ export function Sidebar({
                     Show {filteredRepos.length - 10} more...
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity */}
+          <div>
+            <div className="text-xs font-medium text-claude-gray dark:text-gray-400 uppercase tracking-wider mb-2 px-2 flex items-center gap-1.5">
+              <Bell className="w-3 h-3" />
+              <span>Recent Activity</span>
+            </div>
+            {webhookEventsLoading ? (
+              <div className="flex items-center gap-2 px-2 py-3 text-claude-gray dark:text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Loading activity...</span>
+              </div>
+            ) : webhookEvents.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-claude-gray dark:text-gray-400">
+                No recent activity.
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                {webhookEvents.map((event) => {
+                  const Icon = getEventIcon(event)
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => onSelectEvent?.(event)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left transition-colors",
+                        !event.read
+                          ? "bg-white dark:bg-gray-700 shadow-sm border border-cream-200 dark:border-gray-600"
+                          : "hover:bg-cream-200/50 dark:hover:bg-gray-700/50"
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "w-4 h-4 shrink-0",
+                          event.eventType === "workflow_run" && event.action === "success"
+                            ? "text-emerald-500"
+                            : event.eventType === "workflow_run" && event.action === "failure"
+                            ? "text-red-500"
+                            : "text-claude-gray dark:text-gray-400"
+                        )}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate dark:text-gray-100">
+                          {getEventDisplayText(event)}
+                        </div>
+                        <div className="text-xs text-claude-gray dark:text-gray-400">
+                          {formatRelativeTime(event.createdAt)}
+                        </div>
+                      </div>
+                      {!event.read && (
+                        <div className="w-2 h-2 rounded-full bg-claude-orange shrink-0" />
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

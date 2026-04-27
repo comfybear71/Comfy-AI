@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useCallback, useRef, useEffect } from "react"
-import { Sidebar, GitHubRepoItem } from "@/components/sidebar"
+import { Sidebar, GitHubRepoItem, WebhookEventItem } from "@/components/sidebar"
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { MessageProps } from "./message"
@@ -64,6 +64,24 @@ const MODELS = [
     description: "Vision + language",
     icon: Eye,
   },
+  {
+    id: "llama3.2-vision",
+    name: "Llama 3.2 Vision",
+    description: "Latest vision model",
+    icon: Eye,
+  },
+  {
+    id: "moondream:1.8b",
+    name: "Moondream 1.8B",
+    description: "Tiny vision, very fast",
+    icon: Zap,
+  },
+  {
+    id: "bakllava",
+    name: "BakLLaVA",
+    description: "Vision + language",
+    icon: Sparkles,
+  },
 ]
 
 interface GitHubFileItem {
@@ -108,6 +126,10 @@ export function ChatInterface() {
   const [pinnedRepos, setPinnedRepos] = useState<string[]>([])
   const [repoSearch, setRepoSearch] = useState("")
 
+  // Webhook events state
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEventItem[]>([])
+  const [webhookEventsLoading, setWebhookEventsLoading] = useState(false)
+
   // Load prefs from Neon on mount
   useEffect(() => {
     fetch("/api/user/prefs")
@@ -116,6 +138,18 @@ export function ChatInterface() {
         if (data.pinnedRepos) setPinnedRepos(data.pinnedRepos)
       })
       .catch(() => {})
+  }, [])
+
+  // Load webhook events
+  useEffect(() => {
+    setWebhookEventsLoading(true)
+    fetch("/api/webhooks/events?limit=20")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setWebhookEvents(data)
+      })
+      .catch(() => {})
+      .finally(() => setWebhookEventsLoading(false))
   }, [])
 
   const handleNewChat = useCallback(() => {
@@ -383,6 +417,47 @@ export function ChatInterface() {
     [handleSend]
   )
 
+  const handleSelectEvent = useCallback(
+    async (event: WebhookEventItem) => {
+      // Mark as read
+      fetch(`/api/webhooks/events/${event.id}/read`, { method: "POST" }).catch(() => {})
+      setWebhookEvents((prev) =>
+        prev.map((e) => (e.id === event.id ? { ...e, read: true } : e))
+      )
+
+      // Build summary message
+      let summary = ""
+      if (event.eventType === "pull_request") {
+        const pr = event.payload?.pull_request
+        summary = `Event: PR #${pr?.number || "?"} ${event.action} in ${event.repoOwner}/${event.repoName}. Title: ${pr?.title || event.title || "No title"}. URL: ${pr?.html_url || ""}`
+      } else if (event.eventType === "workflow_run") {
+        const run = event.payload?.workflow_run
+        const branch = run?.head_branch || "unknown"
+        summary = `Event: CI ${event.action} on ${branch} in ${event.repoOwner}/${event.repoName}. Workflow: ${run?.name || event.title || ""}. URL: ${run?.html_url || ""}`
+      } else if (event.eventType === "push") {
+        const branch = event.title || event.payload?.ref?.replace("refs/heads/", "") || "unknown"
+        const commits = event.payload?.commits?.length || 0
+        summary = `Event: Push to ${branch} in ${event.repoOwner}/${event.repoName}. Commits: ${commits}. URL: ${event.payload?.repository?.html_url || ""}`
+      } else {
+        summary = `Event: ${event.eventType} in ${event.repoOwner}/${event.repoName}.`
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "user",
+          content: summary,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ])
+    },
+    []
+  )
+
   const selectedModelInfo = MODELS.find((m) => m.id === selectedModel) || MODELS[0]
   const SelectedIcon = selectedModelInfo.icon
 
@@ -406,6 +481,9 @@ export function ChatInterface() {
         onTogglePin={handleTogglePin}
         repoSearch={repoSearch}
         onRepoSearch={setRepoSearch}
+        webhookEvents={webhookEvents}
+        webhookEventsLoading={webhookEventsLoading}
+        onSelectEvent={handleSelectEvent}
       />
 
       <div className="flex-1 flex flex-col min-w-0">

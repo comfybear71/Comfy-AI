@@ -17,6 +17,9 @@ const CONTEXT_LIMITS: Record<string, number> = {
   "codellama:7b": 16384,
   "llama3.2:3b": 128000,
   "llava:7b": 4096,
+  "llama3.2-vision": 128000,
+  "moondream:1.8b": 8192,
+  "bakllava": 4096,
 }
 
 const SAFETY_MARGIN = 500 // tokens reserved for response
