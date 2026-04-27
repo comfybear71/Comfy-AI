@@ -144,11 +144,17 @@ export function ChatInterface() {
   useEffect(() => {
     setWebhookEventsLoading(true)
     fetch("/api/webhooks/events?limit=20")
-      .then((res) => res.json())
+      .then((res) => {
+        console.log("Webhook events response:", res.status)
+        return res.json()
+      })
       .then((data) => {
+        console.log("Webhook events data:", data)
         if (Array.isArray(data)) setWebhookEvents(data)
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Webhook events fetch failed:", err)
+      })
       .finally(() => setWebhookEventsLoading(false))
   }, [])
 
