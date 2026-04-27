@@ -349,7 +349,7 @@ export function ChatInterface() {
   const SelectedIcon = selectedModelInfo.icon
 
   return (
-    <div className="flex h-screen bg-cream-50 dark:bg-gray-900">
+    <div className="flex h-screen bg-[#0d1117]">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -372,24 +372,24 @@ export function ChatInterface() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-cream-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 pl-16 lg:pl-4 flex items-center justify-between">
+        <div className="border-b border-gray-700 bg-[#161b22] px-4 py-2 pl-16 lg:pl-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-claude-orange flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="font-semibold text-sm text-claude-dark dark:text-gray-100">Comfy AI</span>
+            <span className="font-semibold text-sm text-gray-100">Comfy AI</span>
             {selectedRepo && (
               <>
-                <span className="text-claude-gray">/</span>
+                <span className="text-gray-500">/</span>
                 <button
                   onClick={() => setRepoPanelOpen(!repoPanelOpen)}
-                  className="flex items-center gap-1 text-sm font-medium text-claude-dark hover:text-claude-orange transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md hover:bg-emerald-500/20 transition-colors"
                 >
-                  <Github className="w-3.5 h-3.5" />
+                  <Github className="w-3 h-3" />
                   {selectedRepo.full_name}
                   <ChevronDown
                     className={cn(
-                      "w-3 h-3 text-claude-gray transition-transform",
+                      "w-3 h-3 transition-transform",
                       repoPanelOpen && "rotate-180"
                     )}
                   />
@@ -402,7 +402,7 @@ export function ChatInterface() {
             {selectedRepo && (
               <button
                 onClick={() => setPrModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-claude-dark bg-cream-50 border border-cream-200 hover:bg-cream-100 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 rounded-lg transition-colors"
               >
                 <GitPullRequest className="w-3.5 h-3.5" />
                 Create PR
@@ -413,13 +413,13 @@ export function ChatInterface() {
             <div className="relative">
               <button
                 onClick={() => setModelMenuOpen(!modelMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cream-50 border border-cream-200 hover:bg-cream-100 transition-colors text-sm"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#21262d] border border-gray-700 hover:bg-gray-700 transition-colors text-sm"
               >
-                <SelectedIcon className="w-4 h-4 text-claude-orange" />
-                <span className="text-claude-dark">{selectedModelInfo.name}</span>
+                <SelectedIcon className="w-4 h-4 text-emerald-400" />
+                <span className="text-gray-100">{selectedModelInfo.name}</span>
                 <ChevronDown
                   className={cn(
-                    "w-3.5 h-3.5 text-claude-gray transition-transform",
+                    "w-3.5 h-3.5 text-gray-400 transition-transform",
                     modelMenuOpen && "rotate-180"
                   )}
                 />
@@ -431,7 +431,7 @@ export function ChatInterface() {
                     className="fixed inset-0 z-40"
                     onClick={() => setModelMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl border border-cream-200 shadow-lg py-1 z-50">
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-[#161b22] rounded-xl border border-gray-700 shadow-lg py-1 z-50">
                     {MODELS.map((model) => {
                       const Icon = model.icon
                       return (
@@ -442,28 +442,28 @@ export function ChatInterface() {
                             setModelMenuOpen(false)
                           }}
                           className={cn(
-                            "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-cream-50 transition-colors",
-                            selectedModel === model.id && "bg-cream-50"
+                            "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-700 transition-colors",
+                            selectedModel === model.id && "bg-gray-700"
                           )}
                         >
                           <Icon
                             className={cn(
                               "w-4 h-4 shrink-0",
                               selectedModel === model.id
-                                ? "text-claude-orange"
-                                : "text-claude-gray"
+                                ? "text-emerald-400"
+                                : "text-gray-400"
                             )}
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-claude-dark">
+                            <div className="text-sm font-medium text-gray-100">
                               {model.name}
                             </div>
-                            <div className="text-xs text-claude-gray">
+                            <div className="text-xs text-gray-400">
                               {model.description}
                             </div>
                           </div>
                           {selectedModel === model.id && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-claude-orange" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           )}
                         </button>
                       )
@@ -491,14 +491,14 @@ export function ChatInterface() {
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center px-4">
                 <div className="text-center max-w-2xl">
-                  <div className="w-16 h-16 rounded-2xl bg-claude-orange/10 flex items-center justify-center mx-auto mb-6">
-                    <Sparkles className="w-8 h-8 text-claude-orange" />
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                    <Sparkles className="w-8 h-8 text-emerald-400" />
                   </div>
 
-                  <h1 className="text-3xl font-semibold text-claude-dark mb-3">
+                  <h1 className="text-3xl font-semibold text-gray-100 mb-3">
                     Welcome to Comfy AI
                   </h1>
-                  <p className="text-claude-gray mb-8 text-lg">
+                  <p className="text-gray-400 mb-8 text-lg">
                     Your comfortable space for coding, creating, and conversing.
                   </p>
 
@@ -507,10 +507,10 @@ export function ChatInterface() {
                       <button
                         key={suggestion}
                         onClick={() => handleSuggestion(suggestion)}
-                        className="flex items-center justify-between p-4 bg-white rounded-xl border border-cream-200 hover:border-claude-orange/30 hover:shadow-sm transition-all text-left group"
+                        className="flex items-center justify-between p-4 bg-[#161b22] rounded-xl border border-gray-700 hover:border-emerald-500/30 hover:shadow-sm transition-all text-left group"
                       >
-                        <span className="text-sm text-claude-dark">{suggestion}</span>
-                        <ArrowRight className="w-4 h-4 text-claude-gray opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
+                        <span className="text-sm text-gray-100">{suggestion}</span>
+                        <ArrowRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
                       </button>
                     ))}
                   </div>

@@ -85,24 +85,24 @@ export function PRStatusBanner({ owner, repo, number, url, onDismiss }: PRStatus
 
   const statusIcon =
     overallState === "success" ? (
-      <CheckCircle2 className="w-4 h-4 text-green-600" />
+      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
     ) : overallState === "failure" ? (
-      <XCircle className="w-4 h-4 text-red-600" />
+      <XCircle className="w-4 h-4 text-red-400" />
     ) : (
-      <Clock className="w-4 h-4 text-amber-600" />
+      <Clock className="w-4 h-4 text-amber-400" />
     )
 
   return (
-    <div className="border-b border-cream-200 bg-cream-50">
+    <div className="border-b border-gray-700 bg-[#161b22]">
       <div className="max-w-3xl mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <GitPullRequest className="w-4 h-4 text-claude-orange shrink-0" />
+            <GitPullRequest className="w-4 h-4 text-emerald-400 shrink-0" />
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium text-claude-dark hover:text-claude-orange truncate"
+              className="text-sm font-medium text-gray-100 hover:text-emerald-400 truncate"
             >
               PR #{number} {data?.pr.title && `— ${data.pr.title}`}
             </a>
@@ -111,33 +111,33 @@ export function PRStatusBanner({ owner, repo, number, url, onDismiss }: PRStatus
               <span
                 className={cn(
                   "text-xs font-medium capitalize",
-                  overallState === "success" && "text-green-600",
-                  overallState === "failure" && "text-red-600",
-                  overallState === "pending" && "text-amber-600"
+                  overallState === "success" && "text-emerald-400",
+                  overallState === "failure" && "text-red-400",
+                  overallState === "pending" && "text-amber-400"
                 )}
               >
                 {overallState}
               </span>
-              {loading && <Loader2 className="w-3 h-3 animate-spin text-claude-gray" />}
+              {loading && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
             </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => setExpanded(!expanded)}
-              className="p-1 hover:bg-cream-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
             >
               {expanded ? (
-                <ChevronUp className="w-4 h-4 text-claude-gray" />
+                <ChevronUp className="w-4 h-4 text-gray-400" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-claude-gray" />
+                <ChevronDown className="w-4 h-4 text-gray-400" />
               )}
             </button>
             <button
               onClick={onDismiss}
-              className="p-1 hover:bg-cream-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <X className="w-4 h-4 text-claude-gray" />
+              <X className="w-4 h-4 text-gray-400" />
             </button>
           </div>
         </div>
@@ -145,34 +145,34 @@ export function PRStatusBanner({ owner, repo, number, url, onDismiss }: PRStatus
         {expanded && (
           <div className="mt-2 space-y-1">
             {error && (
-              <div className="flex items-center gap-1.5 text-xs text-red-600">
+              <div className="flex items-center gap-1.5 text-xs text-red-400">
                 <AlertCircle className="w-3.5 h-3.5" />
                 {error}
               </div>
             )}
 
             {data?.checks.length === 0 && !error && (
-              <p className="text-xs text-claude-gray">No checks found yet.</p>
+              <p className="text-xs text-gray-400">No checks found yet.</p>
             )}
 
             {data?.checks.map((check) => (
               <div
                 key={check.name}
-                className="flex items-center justify-between py-1 px-2 bg-white rounded border border-cream-200"
+                className="flex items-center justify-between py-1 px-2 bg-[#0d1117] rounded border border-gray-700"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {check.status !== "completed" ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
                   ) : check.conclusion === "success" ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   ) : check.conclusion === "failure" ? (
-                    <XCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
                   ) : (
-                    <AlertCircle className="w-3.5 h-3.5 text-claude-gray shrink-0" />
+                    <AlertCircle className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                   )}
-                  <span className="text-xs font-medium truncate">{check.name}</span>
+                  <span className="text-xs font-medium truncate text-gray-100">{check.name}</span>
                 </div>
-                <span className="text-[10px] text-claude-gray capitalize shrink-0">
+                <span className="text-[10px] text-gray-400 capitalize shrink-0">
                   {check.status === "completed"
                     ? check.conclusion || "done"
                     : check.status}
@@ -181,7 +181,7 @@ export function PRStatusBanner({ owner, repo, number, url, onDismiss }: PRStatus
             ))}
 
             {lastUpdated && (
-              <p className="text-[10px] text-claude-gray">
+              <p className="text-[10px] text-gray-400">
                 Updated {lastUpdated.toLocaleTimeString()}
               </p>
             )}

@@ -58,70 +58,70 @@ export function PRModal({ repo, suggestedChanges, onClose, onSuccess }: PRModalP
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-cream-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-[#161b22] rounded-xl shadow-xl w-full max-w-lg flex flex-col max-h-[90vh] border border-gray-700">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
           <div className="flex items-center gap-2">
-            <GitPullRequest className="w-5 h-5 text-claude-orange" />
-            <h3 className="font-semibold text-claude-dark">Create Pull Request</h3>
+            <GitPullRequest className="w-5 h-5 text-emerald-400" />
+            <h3 className="font-semibold text-gray-100">Create Pull Request</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-cream-100 rounded-lg transition-colors">
-            <X className="w-4 h-4" />
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-700 rounded-lg transition-colors">
+            <X className="w-4 h-4 text-gray-400" />
           </button>
         </div>
 
         <div className="p-5 space-y-4 overflow-auto">
           <div>
-            <label className="block text-sm font-medium text-claude-dark mb-1">Branch name</label>
+            <label className="block text-sm font-medium text-gray-200 mb-1">Branch name</label>
             <input
               value={branchName}
               onChange={(e) => setBranchName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-cream-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-claude-orange/20 focus:border-claude-orange/50"
+              className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-[#0d1117] text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50"
               placeholder="feature/my-change"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-dark mb-1">PR title *</label>
+            <label className="block text-sm font-medium text-gray-200 mb-1">PR title *</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-cream-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-claude-orange/20 focus:border-claude-orange/50"
+              className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-[#0d1117] text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50"
               placeholder="Short description of the change"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-claude-dark mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-200 mb-1">Description</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-cream-200 bg-cream-50 text-sm focus:outline-none focus:ring-2 focus:ring-claude-orange/20 focus:border-claude-orange/50 resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-[#0d1117] text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/50 resize-none"
               placeholder="What changed and why"
             />
           </div>
 
           {suggestedChanges && suggestedChanges.length > 0 && (
-            <div className="bg-cream-50 rounded-lg p-3 border border-cream-200">
-              <p className="text-xs font-medium text-claude-dark mb-1">Files to change ({suggestedChanges.length})</p>
+            <div className="bg-[#0d1117] rounded-lg p-3 border border-gray-700">
+              <p className="text-xs font-medium text-gray-200 mb-1">Files to change ({suggestedChanges.length})</p>
               <ul className="space-y-0.5">
                 {suggestedChanges.map((f) => (
-                  <li key={f.path} className="text-xs text-claude-gray font-mono">{f.path}</li>
+                  <li key={f.path} className="text-xs text-gray-400 font-mono">{f.path}</li>
                 ))}
               </ul>
             </div>
           )}
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</p>
+            <p className="text-sm text-red-400 bg-red-900/20 rounded-lg p-3">{error}</p>
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-cream-200 flex justify-end gap-2">
+        <div className="px-5 py-4 border-t border-gray-700 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-claude-dark hover:bg-cream-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-200 hover:bg-gray-700 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -131,8 +131,8 @@ export function PRModal({ repo, suggestedChanges, onClose, onSuccess }: PRModalP
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2",
               title.trim() && branchName.trim() && !isSubmitting
-                ? "bg-claude-orange text-white hover:bg-claude-orange/90"
-                : "bg-cream-200 text-claude-gray cursor-not-allowed"
+                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
             )}
           >
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}

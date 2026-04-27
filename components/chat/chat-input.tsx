@@ -43,13 +43,13 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   }
 
   return (
-    <div className="border-t border-cream-200 bg-white p-4">
+    <div className="border-t border-gray-700 bg-[#0d1117] p-4">
       <div className="max-w-3xl mx-auto">
-        <div className="relative flex items-end gap-2 bg-cream-50 rounded-2xl border border-cream-200 p-2 focus-within:ring-2 focus-within:ring-claude-orange/20 focus-within:border-claude-orange/50 transition-all">
+        <div className="relative flex items-end gap-2 bg-[#161b22] rounded-2xl border border-gray-700 p-2 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/50 transition-all">
           <Button
             variant="ghost"
             size="icon"
-            className="shrink-0 h-9 w-9 text-claude-gray hover:text-claude-dark"
+            className="shrink-0 h-9 w-9 text-gray-400 hover:text-gray-100"
             title="Attach file"
           >
             <Paperclip className="w-5 h-5" />
@@ -63,7 +63,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             placeholder="Message Comfy AI..."
             rows={1}
             className={cn(
-              "flex-1 resize-none bg-transparent border-0 p-2 text-base focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none placeholder:text-claude-gray/60 min-h-[40px] max-h-[200px]"
+              "flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
             )}
             disabled={isLoading}
           />
@@ -75,8 +75,8 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             className={cn(
               "shrink-0 h-9 w-9 rounded-xl transition-all",
               input.trim()
-                ? "bg-claude-orange text-white hover:bg-claude-orange/90"
-                : "bg-cream-200 text-claude-gray"
+                ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                : "bg-gray-700 text-gray-400"
             )}
           >
             <Send className="w-4 h-4" />
@@ -84,7 +84,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
         </div>
 
         <div className="text-center mt-2">
-          <p className="text-xs text-claude-gray">
+          <p className="text-xs text-gray-500">
             Comfy AI can make mistakes. Please verify important information.
           </p>
         </div>
