@@ -8,7 +8,7 @@ interface PRModalProps {
   repo: { owner: string; repo: string; default_branch: string }
   suggestedChanges?: { path: string; content: string }[]
   onClose: () => void
-  onSuccess?: (url: string) => void
+  onSuccess?: (url: string, number: number) => void
 }
 
 export function PRModal({ repo, suggestedChanges, onClose, onSuccess }: PRModalProps) {
@@ -48,7 +48,7 @@ export function PRModal({ repo, suggestedChanges, onClose, onSuccess }: PRModalP
         throw new Error(data.error || "Failed to create PR")
       }
 
-      onSuccess?.(data.url)
+      onSuccess?.(data.url, data.number)
       onClose()
     } catch (err: any) {
       setError(err.message)

@@ -7,6 +7,7 @@ import { ChatInput } from "./chat-input"
 import { MessageProps } from "./message"
 import { FileViewer } from "@/components/file-viewer"
 import { PRModal } from "@/components/pr-modal"
+import { PRStatusBanner } from "@/components/pr-status-banner"
 import {
   Sparkles,
   ArrowRight,
@@ -90,6 +91,12 @@ export function ChatInterface() {
     html_url: string
   } | null>(null)
   const [prModalOpen, setPrModalOpen] = useState(false)
+  const [activePR, setActivePR] = useState<{
+    owner: string
+    repo: string
+    number: number
+    url: string
+  } | null>(null)
   const [repoPanelOpen, setRepoPanelOpen] = useState(false)
 
   const handleNewChat = useCallback(() => {
@@ -335,7 +342,7 @@ export function ChatInterface() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-cream-200 bg-white px-4 py-2 flex items-center justify-between">
+        <div className="border-b border-cream-200 bg-white px-4 py-2 pl-14 lg:pl-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-claude-orange flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-white" />
@@ -437,6 +444,16 @@ export function ChatInterface() {
             </div>
           </div>
         </div>
+
+        {activePR && (
+          <PRStatusBanner
+            owner={activePR.owner}
+            repo={activePR.repo}
+            number={activePR.number}
+            url={activePR.url}
+            onDismiss={() => setActivePR(null)}
+          />
+        )}
 
         <div className="flex-1 flex overflow-hidden">
           {/* Main chat area */}
@@ -590,6 +607,16 @@ export function ChatInterface() {
             default_branch: selectedRepo.default_branch,
           }}
           onClose={() => setPrModalOpen(false)}
+          onSuccess={(url, number) => {
+            if (selectedRepo) {
+              setActivePR({
+                owner: selectedRepo.owner.login,
+                repo: selectedRepo.name,
+                number,
+                url,
+              })
+            }
+          }}
         />
       )}
     </div>
