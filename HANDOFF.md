@@ -45,3 +45,32 @@
 
 ### Notes for Next Session
 - Phase 3: GitHub App webhooks, auto-fix
+
+---
+
+## 2026-04-27 — Session: Dark Mode, Neon DB, Repo Pinning, LLM Safety
+
+**Branch:** `claude/handoff-phase2`
+**Status:** Merged, tagged `v0.6.0`, deployed
+**Merged by:** comfybear71 (Stuart French)
+
+### Work Done
+- Dark mode toggle (light/dark/system) with Neon persistence
+- Neon Postgres via Drizzle ORM (`user_prefs` table)
+- Repo search/filter and pin/unpin, persisted to Neon
+- LLM context safety: auto-trim messages to fit model limits
+- Mobile hamburger positioning fix
+- `/docs` scaffold: CLAUDE.md, SAFETY-RULES.md, PROMPTS.md
+
+### Files Changed
+- `app/layout.tsx`, `tailwind.config.ts`, `.env.example`
+- `components/sidebar.tsx`, `components/theme-provider.tsx`
+- `components/chat/chat-interface.tsx`, `app/api/chat/route.ts`
+- New: `app/api/user/prefs/route.ts`, `lib/db.ts`, `lib/schema.ts`, `lib/tokens.ts`
+- New: `docs/CLAUDE.md`, `docs/SAFETY-RULES.md`, `docs/PROMPTS.md`
+
+### Notes for Next Session
+- Google Auth login (under Profile)
+- Custom UI style direction (move away from Claude look)
+- Multi-screenshot upload (needs vision model on Ollama)
+- Phase 3: GitHub App webhooks
