@@ -12,7 +12,7 @@ import { PRStatusBanner } from "@/components/pr-status-banner"
 import { MODELS, getBestVisionModel, getModel, DEFAULT_MODEL_ID } from "@/lib/models"
 import { VISION_MODELS } from "@/lib/tokens"
 import {
-  Sparkles, ChevronDown, Github,
+  Sparkles, ChevronDown, Github, Menu,
   FolderOpen, FileCode, ChevronRight,
   GitPullRequest, X, Loader2, StopCircle,
 } from "lucide-react"
@@ -464,54 +464,70 @@ export function ChatInterface() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-gray-700 bg-[#161b22] px-4 py-2 pl-16 lg:pl-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+        <div className="border-b border-gray-700 bg-[#161b22] px-3 py-2 flex items-center gap-2 min-w-0">
+          {/* Hamburger — lives in header on all screen sizes */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-1.5 rounded-lg hover:bg-gray-700 transition-colors shrink-0"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-5 h-5 text-gray-400" />
+          </button>
+
+          {/* Logo + wordmark */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="w-6 h-6 rounded-md bg-emerald-600 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="font-semibold text-sm text-gray-100">Comfy AI</span>
-            {selectedRepo && (
-              <>
-                <span className="text-gray-600">/</span>
-                <button
-                  onClick={() => setRepoPanelOpen(!repoPanelOpen)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md hover:bg-emerald-500/20 transition-colors"
-                >
-                  <Github className="w-3 h-3" />
-                  {selectedRepo.full_name}
-                  <ChevronDown className={cn("w-3 h-3 transition-transform", repoPanelOpen && "rotate-180")} />
-                </button>
-              </>
-            )}
-            {activeDocFiles.length > 0 && (
-              <span className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md">
-                {activeDocFiles.length} doc{activeDocFiles.length > 1 ? "s" : ""} active
-              </span>
-            )}
+            <span className="font-semibold text-sm text-gray-100 hidden sm:inline">Comfy AI</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {isLoading && (
-              <button
-                onClick={() => abortRef.current?.abort()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 rounded-lg transition-colors"
-                title="Stop generation (Escape)"
-              >
-                <StopCircle className="w-3.5 h-3.5" />
-                Stop
-              </button>
-            )}
-            {selectedRepo && (
-              <button
-                onClick={() => setPrModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 rounded-lg transition-colors"
-              >
-                <GitPullRequest className="w-3.5 h-3.5" />
-                Create PR
-              </button>
-            )}
-            <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
-          </div>
+          {/* Repo badge — repo name only (not full_name) on mobile */}
+          {selectedRepo && (
+            <button
+              onClick={() => setRepoPanelOpen(!repoPanelOpen)}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md hover:bg-emerald-500/20 transition-colors min-w-0"
+            >
+              <Github className="w-3 h-3 shrink-0" />
+              <span className="truncate max-w-[70px] sm:max-w-[160px]">{selectedRepo.name}</span>
+              <ChevronDown className={cn("w-3 h-3 shrink-0 transition-transform", repoPanelOpen && "rotate-180")} />
+            </button>
+          )}
+
+          {/* Docs badge — count only on mobile */}
+          {activeDocFiles.length > 0 && (
+            <span className="shrink-0 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/30 px-1.5 py-0.5 rounded-md">
+              <span className="sm:hidden">{activeDocFiles.length}d</span>
+              <span className="hidden sm:inline">{activeDocFiles.length} docs active</span>
+            </span>
+          )}
+
+          <div className="flex-1" />
+
+          {/* Stop — icon only on mobile */}
+          {isLoading && (
+            <button
+              onClick={() => abortRef.current?.abort()}
+              className="flex items-center gap-1 px-2 py-1.5 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 rounded-lg transition-colors shrink-0"
+              title="Stop generation (Escape)"
+            >
+              <StopCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Stop</span>
+            </button>
+          )}
+
+          {/* Create PR — hidden on mobile */}
+          {selectedRepo && (
+            <button
+              onClick={() => setPrModalOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 rounded-lg transition-colors shrink-0"
+            >
+              <GitPullRequest className="w-3.5 h-3.5" />
+              Create PR
+            </button>
+          )}
+
+          <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
         </div>
 
         {activePR && (

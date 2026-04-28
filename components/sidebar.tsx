@@ -6,7 +6,6 @@ import {
   MessageSquare,
   Settings,
   User,
-  Menu,
   X,
   Github,
   Book,
@@ -373,18 +372,6 @@ export function Sidebar({
         </div>
       </aside>
 
-      {/* Mobile toggle button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggle}
-        className={cn(
-          "fixed top-2 left-4 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-cream-200 dark:border-gray-600 shadow-sm",
-          isOpen && "hidden"
-        )}
-      >
-        <Menu className="w-5 h-5 dark:text-gray-100" />
-      </Button>
     </>
   )
 }
