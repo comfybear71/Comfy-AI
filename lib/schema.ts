@@ -1,21 +1,38 @@
-import { pgTable, serial, varchar, jsonb, timestamp, boolean, uuid, text } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, jsonb, timestamp, boolean, uuid, text, index } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 
-export const conversations = pgTable("conversations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: varchar("user_id", { length: 255 }).notNull(),
-  title: varchar("title", { length: 200 }),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-})
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    title: varchar("title", { length: 200 }),
+    repoOwner: varchar("repo_owner", { length: 100 }),
+    repoName: varchar("repo_name", { length: 100 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("conversations_user_idx").on(t.userId, t.updatedAt),
+  })
+)
 
-export const messages = pgTable("messages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  conversationId: uuid("conversation_id").references(() => conversations.id),
-  role: varchar("role", { length: 20 }).notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-})
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversationId: uuid("conversation_id")
+      .references(() => conversations.id, { onDelete: "cascade" })
+      .notNull(),
+    role: varchar("role", { length: 20 }).notNull(),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    convIdx: index("messages_conv_idx").on(t.conversationId, t.createdAt),
+  })
+)
 
 export const conversationRelations = relations(conversations, ({ many }) => ({
   messages: many(messages),
@@ -33,7 +50,6 @@ export const userPrefs = pgTable("user_prefs", {
   userId: varchar("user_id", { length: 255 }).notNull().unique(),
   theme: varchar("theme", { length: 20 }).notNull().default("system"),
   pinnedRepos: jsonb("pinned_repos").notNull().default([]),
-  // Flexible settings bag: selectedRepo, selectedModel, activeDocFiles, etc.
   settings: jsonb("settings").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -53,12 +69,9 @@ export const webhookEvents = pgTable("webhook_events", {
 
 export type UserPref = typeof userPrefs.$inferSelect
 export type NewUserPref = typeof userPrefs.$inferInsert
-
 export type WebhookEvent = typeof webhookEvents.$inferSelect
 export type NewWebhookEvent = typeof webhookEvents.$inferInsert
-
 export type Conversation = typeof conversations.$inferSelect
 export type NewConversation = typeof conversations.$inferInsert
-
 export type Message = typeof messages.$inferSelect
 export type NewMessage = typeof messages.$inferInsert
