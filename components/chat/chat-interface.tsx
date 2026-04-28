@@ -5,7 +5,6 @@ import { Sidebar, type GitHubRepoItem, type WebhookEventItem } from "@/component
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { ModelPicker } from "./model-picker"
-import { HistoryButton } from "./history-button"
 import { MessageProps } from "./message"
 import { FileViewer } from "@/components/file-viewer"
 import { PRModal } from "@/components/pr-modal"
@@ -15,7 +14,7 @@ import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
   FolderOpen, FileCode, ChevronRight,
-  GitPullRequest, X, Loader2, StopCircle,
+  GitPullRequest, X, Loader2, StopCircle, Plus, Trash2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -61,6 +60,9 @@ export function ChatInterface() {
   const [prModalOpen, setPrModalOpen] = useState(false)
   const [activePR, setActivePR] = useState<{ owner: string; repo: string; number: number; url: string } | null>(null)
   const [repoPanelOpen, setRepoPanelOpen] = useState(false)
+  const [repoPanelTab, setRepoPanelTab] = useState<"files" | "history">("files")
+  const [repoConversations, setRepoConversations] = useState<{ id: string; title: string | null; updatedAt: string }[]>([])
+  const [repoConversationsLoading, setRepoConversationsLoading] = useState(false)
   const [pinnedRepos, setPinnedRepos] = useState<string[]>([])
   const [repoSearch, setRepoSearch] = useState("")
 
@@ -141,6 +143,33 @@ export function ChatInterface() {
     setMessages(loaded)
     setConversationId(conv.id)
     lastSavedCountRef.current = loaded.length
+  }, [])
+
+  // ── Repo history ──────────────────────────────────────────────────────────
+  const loadRepoHistory = useCallback(async () => {
+    if (!selectedRepo) return
+    setRepoConversationsLoading(true)
+    try {
+      const res = await fetch("/api/conversations?userId=default")
+      if (res.ok) {
+        const data = await res.json()
+        setRepoConversations(
+          Array.isArray(data) ? data.filter((c: any) => c.repoName === selectedRepo.name) : []
+        )
+      }
+    } catch {}
+    finally { setRepoConversationsLoading(false) }
+  }, [selectedRepo])
+
+  useEffect(() => {
+    if (repoPanelOpen && repoPanelTab === "history") loadRepoHistory()
+  }, [repoPanelOpen, repoPanelTab, loadRepoHistory, conversationId])
+
+  useEffect(() => { setRepoPanelTab("files") }, [selectedRepo?.name])
+
+  const handleDeleteRepoConversation = useCallback(async (id: string) => {
+    await fetch(`/api/conversations?conversationId=${id}`, { method: "DELETE" })
+    setRepoConversations((prev) => prev.filter((c) => c.id !== id))
   }, [])
 
   // ── Startup: load prefs + docs together so we can auto-enable docs ───────
@@ -596,13 +625,6 @@ export function ChatInterface() {
             </button>
           )}
 
-          <HistoryButton
-            userId="default"
-            currentConversationId={conversationId}
-            onLoad={handleLoadConversation}
-            onNewChat={handleNewChat}
-          />
-
           <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
         </div>
 
@@ -672,59 +694,144 @@ export function ChatInterface() {
             </>
           )}
 
-          {/* Repo file browser panel */}
+          {/* Repo panel — Files + History tabs */}
           {repoPanelOpen && selectedRepo && (
             <>
               <div className="fixed inset-0 bg-black/10 z-30 lg:hidden" onClick={() => setRepoPanelOpen(false)} />
               <div className="w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
+
+                {/* Panel header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
                   <div className="flex items-center gap-2 min-w-0">
-                    <FolderOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Github className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="text-sm font-medium truncate text-gray-100">{selectedRepo.name}</span>
                   </div>
                   <button onClick={() => setRepoPanelOpen(false)} className="p-1 hover:bg-gray-700 rounded-lg transition-colors">
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
-                <div className="px-3 py-2">
-                  {filePath.length > 0 && (
+
+                {/* Tabs */}
+                <div className="flex border-b border-gray-700 shrink-0">
+                  {(["files", "history"] as const).map((tab) => (
                     <button
-                      onClick={() => {
-                        const parent = filePath.slice(0, -1)
-                        parent.length === 0 ? handleSelectRepo(selectedRepo) : handleOpenDirectory(parent)
-                      }}
-                      className="text-xs text-gray-400 hover:text-gray-100 flex items-center gap-1 mb-2"
+                      key={tab}
+                      onClick={() => setRepoPanelTab(tab)}
+                      className={cn(
+                        "flex-1 py-2 text-xs font-medium capitalize transition-colors border-b-2",
+                        repoPanelTab === tab
+                          ? "text-emerald-400 border-emerald-400"
+                          : "text-gray-500 border-transparent hover:text-gray-300"
+                      )}
                     >
-                      <ChevronRight className="w-3 h-3 rotate-180" />
-                      Back
+                      {tab}
                     </button>
-                  )}
-                  <p className="text-xs text-gray-600 font-mono truncate">{filePath.join("/") || "/"}</p>
+                  ))}
                 </div>
-                <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5 scrollbar-thin">
-                  {filesLoading ? (
-                    <div className="flex items-center gap-2 px-2 py-3 text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Loading…</span>
+
+                {/* Files tab */}
+                {repoPanelTab === "files" && (
+                  <>
+                    <div className="px-3 py-2 shrink-0">
+                      {filePath.length > 0 && (
+                        <button
+                          onClick={() => {
+                            const parent = filePath.slice(0, -1)
+                            parent.length === 0 ? handleSelectRepo(selectedRepo) : handleOpenDirectory(parent)
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-100 flex items-center gap-1 mb-2"
+                        >
+                          <ChevronRight className="w-3 h-3 rotate-180" />
+                          Back
+                        </button>
+                      )}
+                      <p className="text-xs text-gray-600 font-mono truncate">{filePath.join("/") || "/"}</p>
                     </div>
-                  ) : (
-                    repoFiles.map((item) => (
+                    <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+                      {filesLoading ? (
+                        <div className="flex items-center gap-2 px-2 py-3 text-gray-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">Loading…</span>
+                        </div>
+                      ) : (
+                        repoFiles.map((item) => (
+                          <button
+                            key={item.sha}
+                            onClick={() => item.type === "dir" ? handleOpenDirectory([...filePath, item.name]) : handleOpenFile([...filePath, item.name])}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-gray-700/50 transition-colors"
+                          >
+                            {item.type === "dir"
+                              ? <FolderOpen className="w-4 h-4 text-emerald-400/70 shrink-0" />
+                              : <FileCode className="w-4 h-4 text-gray-500 shrink-0" />
+                            }
+                            <span className={cn("text-sm truncate", item.type === "dir" ? "font-medium text-gray-200" : "text-gray-300")}>
+                              {item.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* History tab */}
+                {repoPanelTab === "history" && (
+                  <>
+                    <div className="px-3 py-2 border-b border-gray-700/50 shrink-0 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{selectedRepo.name} conversations</span>
                       <button
-                        key={item.sha}
-                        onClick={() => item.type === "dir" ? handleOpenDirectory([...filePath, item.name]) : handleOpenFile([...filePath, item.name])}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-gray-700/50 transition-colors"
+                        onClick={() => { handleNewChat(); setRepoPanelOpen(false) }}
+                        className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
                       >
-                        {item.type === "dir"
-                          ? <FolderOpen className="w-4 h-4 text-emerald-400/70 shrink-0" />
-                          : <FileCode className="w-4 h-4 text-gray-500 shrink-0" />
-                        }
-                        <span className={cn("text-sm truncate", item.type === "dir" ? "font-medium text-gray-200" : "text-gray-300")}>
-                          {item.name}
-                        </span>
+                        <Plus className="w-3 h-3" />
+                        New chat
                       </button>
-                    ))
-                  )}
-                </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {repoConversationsLoading ? (
+                        <div className="flex items-center justify-center gap-2 p-6 text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading…
+                        </div>
+                      ) : repoConversations.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-gray-500">No conversations yet for this repo</div>
+                      ) : (
+                        repoConversations.map((conv) => {
+                          const isActive = conv.id === conversationId
+                          return (
+                            <button
+                              key={conv.id}
+                              onClick={() => {
+                                fetch(`/api/conversations?conversationId=${conv.id}`)
+                                  .then((r) => r.ok ? r.json() : null)
+                                  .then((data) => { if (data) { handleLoadConversation(data); setRepoPanelOpen(false) } })
+                                  .catch(() => {})
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2.5 hover:bg-gray-700/50 transition-colors group flex items-start gap-2 border-b border-gray-700/30 last:border-0",
+                                isActive && "bg-gray-700/40"
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-gray-100 truncate">{conv.title || "Untitled"}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5">
+                                  {new Date(conv.updatedAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteRepoConversation(conv.id) }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-opacity shrink-0"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
