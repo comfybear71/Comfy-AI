@@ -13,6 +13,7 @@ export interface MessageProps {
   content: string
   images?: string[]
   timestamp?: string
+  isStreaming?: boolean
 }
 
 function CodeBlock({ children, className, ...props }: any) {
@@ -56,7 +57,7 @@ function CodeBlock({ children, className, ...props }: any) {
   )
 }
 
-export function Message({ role, content, images, timestamp }: MessageProps) {
+export function Message({ role, content, images, timestamp, isStreaming }: MessageProps) {
   const isUser = role === "user"
 
   return (
@@ -110,18 +111,26 @@ export function Message({ role, content, images, timestamp }: MessageProps) {
           </div>
         )}
 
-        <div className="prose prose-sm max-w-none prose-invert">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeHighlight]}
-            components={{
-              pre: ({ children }: any) => <>{children}</>,
-              code: CodeBlock,
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        </div>
+        {isStreaming && !content ? (
+          <div className="flex gap-1 py-1">
+            <div className="w-2 h-2 rounded-full bg-emerald-400/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <div className="w-2 h-2 rounded-full bg-emerald-400/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <div className="w-2 h-2 rounded-full bg-emerald-400/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+          </div>
+        ) : (
+          <div className="prose prose-sm max-w-none prose-invert">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
+              components={{
+                pre: ({ children }: any) => <>{children}</>,
+                code: CodeBlock,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   )

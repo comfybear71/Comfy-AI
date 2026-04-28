@@ -289,7 +289,7 @@ export function ChatInterface() {
       const assistantId = (Date.now() + 1).toString()
       setMessages((prev) => [
         ...prev,
-        { id: assistantId, role: "assistant", content: "", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+        { id: assistantId, role: "assistant", content: "", isStreaming: true, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
       ])
 
       try {
@@ -335,7 +335,7 @@ export function ChatInterface() {
           const { done, value } = await reader.read()
           if (done) break
           full += decoder.decode(value, { stream: true })
-          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full } : m))
+          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
         }
       } catch (err: any) {
         if (err.name === "AbortError") return
