@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getOctokit } from "@/lib/github"
 
+function isSafeParam(s: string): boolean {
+  return /^[a-zA-Z0-9_.\-]+$/.test(s)
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { owner: string; repo: string; path: string[] } }
 ) {
+  if (!isSafeParam(params.owner) || !isSafeParam(params.repo)) {
+    return NextResponse.json({ error: "Invalid repository" }, { status: 400 })
+  }
+  if (params.path.some((segment) => segment === ".." || segment === "")) {
+    return NextResponse.json({ error: "Invalid path" }, { status: 400 })
+  }
+
   try {
     const { searchParams } = new URL(req.url)
     const ref = searchParams.get("ref") || "HEAD"

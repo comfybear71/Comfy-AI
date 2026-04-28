@@ -5,6 +5,8 @@ export const userPrefs = pgTable("user_prefs", {
   userId: varchar("user_id", { length: 255 }).notNull().unique(),
   theme: varchar("theme", { length: 20 }).notNull().default("system"),
   pinnedRepos: jsonb("pinned_repos").notNull().default([]),
+  // Flexible settings bag: selectedRepo, selectedModel, activeDocFiles, etc.
+  settings: jsonb("settings").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 })

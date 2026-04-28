@@ -10,9 +10,7 @@ import {
   X,
   Github,
   Book,
-  FileCode,
   ChevronRight,
-  FolderOpen,
   Loader2,
   AlertCircle,
   Moon,
@@ -55,10 +53,6 @@ export interface WebhookEventItem {
 interface SidebarProps {
   isOpen: boolean
   onToggle: () => void
-  chats: { id: string; title: string; date: string }[]
-  activeChat: string | null
-  onNewChat: () => void
-  onSelectChat: (id: string) => void
   githubConnected?: boolean
   repos?: GitHubRepoItem[]
   reposLoading?: boolean
@@ -78,10 +72,6 @@ interface SidebarProps {
 export function Sidebar({
   isOpen,
   onToggle,
-  chats,
-  activeChat,
-  onNewChat,
-  onSelectChat,
   githubConnected,
   repos,
   reposLoading,
@@ -159,8 +149,8 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:hidden"
+          "fixed lg:relative inset-y-0 left-0 z-50 w-72 flex-shrink-0 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="p-4 flex items-center justify-between">
@@ -187,16 +177,6 @@ export function Sidebar({
             className="lg:hidden"
           >
             <X className="w-5 h-5" />
-          </Button>
-        </div>
-
-        <div className="px-3 mb-2">
-          <Button
-            onClick={onNewChat}
-            className="w-full justify-start gap-2 bg-white dark:bg-gray-700 border border-cream-200 dark:border-gray-600 hover:bg-cream-100 dark:hover:bg-gray-600 text-claude-dark dark:text-gray-100 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            New chat
           </Button>
         </div>
 
@@ -365,32 +345,6 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Recent Chats */}
-          <div>
-            <div className="text-xs font-medium text-claude-gray dark:text-gray-400 uppercase tracking-wider mb-2 px-2">
-              Recent
-            </div>
-            <div className="space-y-0.5">
-              {chats.map((chat) => (
-                <button
-                  key={chat.id}
-                  onClick={() => onSelectChat(chat.id)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left transition-colors",
-                    activeChat === chat.id
-                      ? "bg-white dark:bg-gray-700 shadow-sm border border-cream-200 dark:border-gray-600"
-                      : "hover:bg-cream-200/50 dark:hover:bg-gray-700/50"
-                  )}
-                >
-                  <MessageSquare className="w-4 h-4 text-claude-gray dark:text-gray-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate dark:text-gray-100">{chat.title}</div>
-                    <div className="text-xs text-claude-gray dark:text-gray-400">{chat.date}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         <div className="p-3 border-t border-cream-200 dark:border-gray-700 space-y-1">
