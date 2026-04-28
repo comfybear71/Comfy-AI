@@ -1,4 +1,32 @@
-import { pgTable, serial, varchar, jsonb, timestamp, boolean } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, jsonb, timestamp, boolean, uuid, text } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
+
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  title: varchar("title", { length: 200 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+})
+
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id").references(() => conversations.id),
+  role: varchar("role", { length: 20 }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+})
+
+export const conversationRelations = relations(conversations, ({ many }) => ({
+  messages: many(messages),
+}))
+
+export const messageRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+}))
 
 export const userPrefs = pgTable("user_prefs", {
   id: serial("id").primaryKey(),
@@ -28,3 +56,9 @@ export type NewUserPref = typeof userPrefs.$inferInsert
 
 export type WebhookEvent = typeof webhookEvents.$inferSelect
 export type NewWebhookEvent = typeof webhookEvents.$inferInsert
+
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
+
+export type Message = typeof messages.$inferSelect
+export type NewMessage = typeof messages.$inferInsert
