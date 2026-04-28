@@ -33,6 +33,7 @@ const CONTEXT_LIMITS: Record<string, number> = {
   "deepseek-coder:6.7b": 16384,
   "deepseek-coder-v2": 131072,
   "qwen2.5-coder:7b": 131072,
+  "qwen3:8b": 131072,
   "gemma2:9b": 8192,
   "gemma2:27b": 8192,
   // Anthropic — Claude models

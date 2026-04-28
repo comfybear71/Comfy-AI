@@ -21,6 +21,7 @@ export const MODELS: ModelDef[] = [
   { id: "deepseek-coder-v2",  name: "DeepSeek Coder V2",   description: "Expert coder · 128k ctx",     icon: Code,     provider: "ollama",    vision: false },
   { id: "qwen2.5-coder:7b",   name: "Qwen 2.5 Coder 7B",  description: "Code + math",                  icon: Code,     provider: "ollama",    vision: false },
   { id: "phi3:mini",          name: "Phi-3 Mini",          description: "Small but smart · 128k ctx",  icon: Zap,      provider: "ollama",    vision: false },
+  { id: "qwen3:8b",           name: "Qwen 3 8B",           description: "Reasoning + code · 128k ctx", icon: Brain,    provider: "ollama",    vision: false },
   { id: "llava:7b",           name: "LLaVA 7B",            description: "Vision + language",           icon: Eye,      provider: "ollama",    vision: true  },
   { id: "llama3.2-vision",    name: "Llama 3.2 Vision",    description: "Latest vision · 128k ctx",    icon: Eye,      provider: "ollama",    vision: true  },
   { id: "moondream:1.8b",     name: "Moondream 1.8B",      description: "Tiny vision, very fast",      icon: Eye,      provider: "ollama",    vision: true  },
