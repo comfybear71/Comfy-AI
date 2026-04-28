@@ -441,7 +441,7 @@ export function ChatInterface() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-[#0d1117]">
+    <div className="flex h-dvh bg-[#0d1117]">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
