@@ -149,8 +149,10 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:relative inset-y-0 left-0 z-50 w-72 flex-shrink-0 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "fixed lg:relative inset-y-0 left-0 z-50 flex-shrink-0 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transition-all duration-200 ease-in-out overflow-hidden",
+          isOpen
+            ? "w-72 translate-x-0"
+            : "-translate-x-full w-72 lg:translate-x-0 lg:w-0 lg:border-0"
         )}
       >
         <div className="p-4 flex items-center justify-between">
@@ -174,7 +176,6 @@ export function Sidebar({
             variant="ghost"
             size="icon"
             onClick={onToggle}
-            className="lg:hidden"
           >
             <X className="w-5 h-5" />
           </Button>
@@ -378,7 +379,7 @@ export function Sidebar({
         size="icon"
         onClick={onToggle}
         className={cn(
-          "fixed top-2 left-4 z-30 lg:hidden bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-cream-200 dark:border-gray-600 shadow-sm",
+          "fixed top-2 left-4 z-30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-cream-200 dark:border-gray-600 shadow-sm",
           isOpen && "hidden"
         )}
       >

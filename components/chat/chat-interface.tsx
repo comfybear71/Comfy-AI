@@ -12,20 +12,11 @@ import { PRStatusBanner } from "@/components/pr-status-banner"
 import { MODELS, getBestVisionModel, getModel, DEFAULT_MODEL_ID } from "@/lib/models"
 import { VISION_MODELS } from "@/lib/tokens"
 import {
-  Sparkles, ArrowRight, ChevronDown, Github,
+  Sparkles, ChevronDown, Github,
   FolderOpen, FileCode, ChevronRight,
   GitPullRequest, X, Loader2, StopCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const WELCOME_SUGGESTIONS = [
-  "Explain React Server Components",
-  "Write a Python script for data visualisation",
-  "Help me design a REST API",
-  "Debug this TypeScript error",
-  "Review my last commit",
-  "Create a PR for my current changes",
-]
 
 interface GitHubFileItem {
   name: string
@@ -450,7 +441,7 @@ export function ChatInterface() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-[#0d1117]">
+    <div className="flex h-dvh bg-[#0d1117]">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -537,24 +528,12 @@ export function ChatInterface() {
           <div className="flex-1 flex flex-col min-w-0">
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center px-4">
-                <div className="text-center max-w-2xl">
+                <div className="text-center">
                   <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
                     <Sparkles className="w-8 h-8 text-emerald-400" />
                   </div>
                   <h1 className="text-3xl font-semibold text-gray-100 mb-3">Welcome to Comfy AI</h1>
-                  <p className="text-gray-400 mb-8 text-lg">Your comfortable space for coding, creating, and conversing.</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl mx-auto">
-                    {WELCOME_SUGGESTIONS.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleSend(s)}
-                        className="flex items-center justify-between p-4 bg-[#161b22] rounded-xl border border-gray-700 hover:border-emerald-500/30 transition-all text-left group"
-                      >
-                        <span className="text-sm text-gray-100">{s}</span>
-                        <ArrowRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2" />
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-gray-400 text-lg">Your comfortable space for coding, creating, and conversing.</p>
                 </div>
               </div>
             ) : (
