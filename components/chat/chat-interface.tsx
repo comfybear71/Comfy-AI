@@ -464,8 +464,8 @@ export function ChatInterface() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-gray-700 bg-[#161b22] px-3 py-2 flex items-center gap-2 min-w-0">
-          {/* Hamburger — lives in header on all screen sizes */}
+        <div className="border-b border-gray-700 bg-[#161b22] px-3 py-2 flex items-center gap-2 min-w-0 h-12">
+          {/* Hamburger */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-lg hover:bg-gray-700 transition-colors shrink-0"
@@ -474,37 +474,41 @@ export function ChatInterface() {
             <Menu className="w-5 h-5 text-gray-400" />
           </button>
 
-          {/* Logo + wordmark */}
+          {/* Logo — blue dot on icon when docs active (mobile), full badge on desktop */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className="w-6 h-6 rounded-md bg-emerald-600 flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-white" />
+            <div className="relative">
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              {activeDocFiles.length > 0 && (
+                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 ring-1 ring-[#161b22] sm:hidden" />
+              )}
             </div>
-            <span className="font-semibold text-sm text-gray-100 hidden sm:inline">Comfy AI</span>
+            <span className="font-semibold text-sm text-gray-100 whitespace-nowrap hidden sm:inline">Comfy AI</span>
           </div>
 
-          {/* Repo badge — repo name only (not full_name) on mobile */}
+          {/* Repo badge */}
           {selectedRepo && (
             <button
               onClick={() => setRepoPanelOpen(!repoPanelOpen)}
-              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md hover:bg-emerald-500/20 transition-colors min-w-0"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-md hover:bg-emerald-500/20 transition-colors min-w-0 max-w-[90px] sm:max-w-none"
             >
               <Github className="w-3 h-3 shrink-0" />
-              <span className="truncate max-w-[70px] sm:max-w-[160px]">{selectedRepo.name}</span>
+              <span className="truncate">{selectedRepo.name}</span>
               <ChevronDown className={cn("w-3 h-3 shrink-0 transition-transform", repoPanelOpen && "rotate-180")} />
             </button>
           )}
 
-          {/* Docs badge — count only on mobile */}
+          {/* Docs badge — desktop only; mobile uses dot indicator on logo */}
           {activeDocFiles.length > 0 && (
-            <span className="shrink-0 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/30 px-1.5 py-0.5 rounded-md">
-              <span className="sm:hidden">{activeDocFiles.length}d</span>
-              <span className="hidden sm:inline">{activeDocFiles.length} docs active</span>
+            <span className="hidden sm:inline-flex shrink-0 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-md whitespace-nowrap">
+              {activeDocFiles.length} docs active
             </span>
           )}
 
           <div className="flex-1" />
 
-          {/* Stop — icon only on mobile */}
+          {/* Stop */}
           {isLoading && (
             <button
               onClick={() => abortRef.current?.abort()}
@@ -516,7 +520,7 @@ export function ChatInterface() {
             </button>
           )}
 
-          {/* Create PR — hidden on mobile */}
+          {/* Create PR — desktop only */}
           {selectedRepo && (
             <button
               onClick={() => setPrModalOpen(true)}
