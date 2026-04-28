@@ -79,33 +79,42 @@ export function ChatInterface() {
     return () => window.removeEventListener("keydown", onKey)
   }, [isLoading])
 
-  // ── Load prefs from Neon on mount ────────────────────────────────────────
+  // ── Startup: load prefs + docs together so we can auto-enable docs ───────
   useEffect(() => {
-    fetch("/api/user/prefs")
-      .then((r) => r.json())
-      .then(async (data) => {
-        if (data.pinnedRepos) setPinnedRepos(data.pinnedRepos)
-        const s = data.settings ?? {}
-        if (s.selectedModel) setSelectedModel(s.selectedModel)
-        if (s.activeDocFiles) setActiveDocFiles(s.activeDocFiles)
-        // Restore selected repo
-        if (s.selectedRepo) {
-          try {
-            const res = await fetch("/api/github/repos")
-            if (res.ok) {
-              const all: GitHubRepoItem[] = await res.json()
-              setRepos(all)
-              setGithubConnected(true)
-              const match = all.find((r) => r.full_name === s.selectedRepo)
-              if (match) {
-                setSelectedRepo(match)
-                setRepoPanelOpen(false)
-              }
-            }
-          } catch {}
-        }
-      })
-      .catch(() => {})
+    Promise.all([
+      fetch("/api/user/prefs").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/docs").then((r) => r.json()).catch(() => []),
+    ]).then(async ([data, docList]) => {
+      // Prefs
+      if (data.pinnedRepos) setPinnedRepos(data.pinnedRepos)
+      const s = data.settings ?? {}
+      if (s.selectedModel) setSelectedModel(s.selectedModel)
+
+      // Docs — auto-enable all on first visit (no saved preference yet)
+      const docs: string[] = Array.isArray(docList) ? docList : []
+      setAvailableDocs(docs)
+      if (Array.isArray(s.activeDocFiles)) {
+        setActiveDocFiles(s.activeDocFiles)
+      } else if (docs.length > 0) {
+        // First time: enable all docs automatically
+        setActiveDocFiles(docs)
+        savePrefs({ settings: { activeDocFiles: docs } })
+      }
+
+      // Restore selected repo
+      if (s.selectedRepo) {
+        try {
+          const res = await fetch("/api/github/repos")
+          if (res.ok) {
+            const all: GitHubRepoItem[] = await res.json()
+            setRepos(all)
+            setGithubConnected(true)
+            const match = all.find((r) => r.full_name === s.selectedRepo)
+            if (match) { setSelectedRepo(match); setRepoPanelOpen(false) }
+          }
+        } catch {}
+      }
+    })
   }, [])
 
   // ── Load webhook events ───────────────────────────────────────────────────
@@ -116,14 +125,6 @@ export function ChatInterface() {
       .then((data) => { if (Array.isArray(data)) setWebhookEvents(data) })
       .catch(() => {})
       .finally(() => setWebhookEventsLoading(false))
-  }, [])
-
-  // ── Load available docs ───────────────────────────────────────────────────
-  useEffect(() => {
-    fetch("/api/docs")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setAvailableDocs(data) })
-      .catch(() => {})
   }, [])
 
   // ── Rebuild docs context string when selection changes ────────────────────
