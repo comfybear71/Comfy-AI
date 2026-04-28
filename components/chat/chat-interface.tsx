@@ -44,8 +44,11 @@ export function ChatInterface() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const lastSavedCountRef = useRef(0)
-  const savingRef = useRef(false)
+  const conversationIdRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Keep conversationIdRef in sync (avoids stale closure in handleSend)
+  useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
 
   // GitHub state
   const [githubConnected, setGithubConnected] = useState(false)
@@ -85,49 +88,14 @@ export function ChatInterface() {
     return () => window.removeEventListener("keydown", onKey)
   }, [isLoading])
 
-  // ── Auto-save conversation when not streaming ────────────────────────────
-  useEffect(() => {
-    if (isLoading) return
-    if (messages.length === 0) return
-    if (messages.length === lastSavedCountRef.current) return
-    if (savingRef.current) return
-
-    const last = messages[messages.length - 1]
-    if (last.role === "assistant" && !last.content.trim()) return
-
-    const newSlice = messages.slice(lastSavedCountRef.current).map((m) => ({
-      role: m.role,
-      content: m.content,
-      metadata: m.images && m.images.length > 0 ? { hasImages: true } : {},
-    }))
-    if (newSlice.length === 0) return
-
-    savingRef.current = true
-    const repoContext = selectedRepo
-      ? { repoOwner: selectedRepo.owner.login, repoName: selectedRepo.name }
-      : undefined
-
-    fetch("/api/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "default", conversationId, messages: newSlice, repoContext }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        if (data?.conversationId && !conversationId) setConversationId(data.conversationId)
-        lastSavedCountRef.current = messages.length
-      })
-      .catch((err) => console.error("Failed to save conversation:", err))
-      .finally(() => { savingRef.current = false })
-  }, [messages, isLoading, conversationId, selectedRepo])
+  // Save is handled directly inside handleSend (not via effect) to avoid
+  // closure race conditions when the user switches repos mid-stream.
 
   // ── History button handlers ──────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
     setMessages([])
     setConversationId(null)
+    conversationIdRef.current = null
     lastSavedCountRef.current = 0
   }, [])
 
@@ -142,6 +110,7 @@ export function ChatInterface() {
       }))
     setMessages(loaded)
     setConversationId(conv.id)
+    conversationIdRef.current = conv.id
     lastSavedCountRef.current = loaded.length
   }, [])
 
@@ -269,6 +238,11 @@ export function ChatInterface() {
   const handleSelectRepo = useCallback(async (repo: GitHubRepoItem) => {
     setSelectedRepo(repo); setFilePath([]); setRepoFiles([])
     setRepoPanelOpen(true); setSidebarOpen(false)
+    // Start a fresh conversation when switching repos
+    setMessages([])
+    setConversationId(null)
+    conversationIdRef.current = null
+    lastSavedCountRef.current = 0
     savePrefs({ settings: { selectedRepo: repo.full_name } })
     setFilesLoading(true)
     try {
@@ -430,6 +404,38 @@ export function ChatInterface() {
           if (done) break
           full += decoder.decode(value, { stream: true })
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
+        }
+
+        // Save conversation — done here (not in a useEffect) so selectedRepo and
+        // messages are captured from the exact moment the user hit Send, avoiding
+        // race conditions when the user switches repos before save fires.
+        if (full) {
+          const toSave = [
+            ...messages.slice(lastSavedCountRef.current),
+            { role: "user" as const, content: enrichedContent },
+            { role: "assistant" as const, content: full },
+          ].map((m) => ({ role: m.role, content: m.content, metadata: {} }))
+
+          const repoCtx = selectedRepo
+            ? { repoOwner: selectedRepo.owner.login, repoName: selectedRepo.name }
+            : undefined
+          const currentConvId = conversationIdRef.current
+          const newCount = messages.length + 2
+
+          fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: "default", conversationId: currentConvId, messages: toSave, repoContext: repoCtx }),
+          })
+            .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+            .then((data) => {
+              if (data?.conversationId) {
+                conversationIdRef.current = data.conversationId
+                setConversationId(data.conversationId)
+              }
+              lastSavedCountRef.current = newCount
+            })
+            .catch((err) => console.error("Save failed:", err))
         }
       } catch (err: any) {
         if (err.name === "AbortError") return
@@ -697,8 +703,8 @@ export function ChatInterface() {
           {/* Repo panel — Files + History tabs */}
           {repoPanelOpen && selectedRepo && (
             <>
-              <div className="fixed inset-0 bg-black/10 z-30 lg:hidden" onClick={() => setRepoPanelOpen(false)} />
-              <div className="w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
+              <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={() => setRepoPanelOpen(false)} />
+              <div className="fixed right-0 top-12 bottom-0 lg:relative lg:top-auto lg:bottom-auto w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
 
                 {/* Panel header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
