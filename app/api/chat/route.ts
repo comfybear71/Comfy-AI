@@ -277,7 +277,7 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
   return fetch(`${apiUrl}/api/chat`, {
     method: "POST",
     headers,
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(55000),
     body: JSON.stringify({
       model,
       messages: messages.map((m) => ({ role: m.role, content: m.content, ...(m.images ? { images: m.images } : {}) })),
@@ -317,8 +317,9 @@ export async function POST(req: NextRequest) {
     const { messages, model = "llama3.1:8b", stream = true } = await req.json()
 
     const systemPrompt = process.env.SYSTEM_PROMPT
+    const modelLine = `\nCURRENT MODEL: You are powered by ${model}. When asked what model you are, say exactly: "I'm Comfy AI, currently powered by ${model}. You can change models using the picker in the header."`
     const messagesWithSystem = systemPrompt?.trim()
-      ? [{ role: "system", content: systemPrompt.trim() }, ...messages]
+      ? [{ role: "system", content: systemPrompt.trim() + modelLine }, ...messages]
       : messages
 
     const provider = detectProvider(model)
