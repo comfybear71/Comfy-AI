@@ -92,16 +92,20 @@ function Table({ children }: any) {
   const rows = tableBody.props?.children || []
 
   return (
-    <div className="my-4 space-y-3">
-      {/* Desktop: traditional table view */}
+    <div className="my-4 space-y-3 !m-0">
+      {/* Desktop: traditional table view (hidden on mobile) */}
       <div className="hidden sm:block border border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          {tableHead && <thead className="bg-[#0d1117] border-b border-gray-700">{tableHead.props.children}</thead>}
+          {tableHead && (
+            <thead className="bg-[#0d1117] border-b border-gray-700">
+              {tableHead.props.children}
+            </thead>
+          )}
           <tbody>{rows}</tbody>
         </table>
       </div>
 
-      {/* Mobile: stacked card view */}
+      {/* Mobile: stacked card view (visible only on small screens) */}
       <div className="sm:hidden space-y-3">
         {rows.map((row: any, idx: number) => {
           const cells = row.props?.children || []
@@ -113,13 +117,17 @@ function Table({ children }: any) {
           const valueText = extractText(valueCell)
 
           return (
-            <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0d1117]">
-              <div className="text-xs font-semibold text-emerald-400 mb-2">{fieldText}</div>
-              <div className="text-sm text-gray-200 break-words font-mono">{valueText}</div>
+            <div key={idx} className="border border-gray-700 rounded-lg p-4 bg-[#0d1117]">
+              <div className="text-xs font-bold text-emerald-400 mb-3 uppercase tracking-wide">
+                {fieldText}
+              </div>
+              <div className="text-sm text-gray-100 break-words font-mono mb-3 leading-relaxed">
+                {valueText}
+              </div>
               {valueText && (
                 <button
                   onClick={() => handleCopyCell(valueText)}
-                  className="mt-2 text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                  className="w-full text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 py-2 rounded border border-gray-700 hover:border-emerald-400/50"
                 >
                   {copiedCell === valueText ? (
                     <>
