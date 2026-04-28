@@ -309,8 +309,9 @@ export function ChatInterface() {
             content: `You are assisting with the GitHub repository ${selectedRepo.full_name} (default branch: ${selectedRepo.default_branch}).`,
           })
         }
-        // Inject docs context
-        if (docsContext) {
+        // Inject docs context — skip for local Ollama models (large context slows them down)
+        const isCloudModel = model.startsWith("claude-") || model.startsWith("grok-")
+        if (docsContext && isCloudModel) {
           contextMessages.unshift({ role: "system", content: docsContext })
         }
 
