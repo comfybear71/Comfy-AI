@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from "next/server"
 import { trimMessagesToFit } from "@/lib/tokens"
 
 type Message = { role: string; content: string; images?: string[] }
-type Provider = "anthropic" | "xai" | "ollama"
+type Provider = "anthropic" | "xai" | "ollama" | "groq" | "ollama-cloud"
+
+const GROQ_MODEL_IDS = new Set([
+  "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile",
+  "mixtral-8x7b-32768",
+  "llama-3.1-70b-versatile",
+])
 
 function detectProvider(model: string): Provider {
   if (model.startsWith("claude-")) return "anthropic"
   if (model.startsWith("grok-")) return "xai"
+  if (GROQ_MODEL_IDS.has(model)) return "groq"
+  if (model.endsWith(":cloud") || model.endsWith("-cloud") || model.endsWith("-thinking")) return "ollama-cloud"
   return "ollama"
 }
 
@@ -132,7 +141,6 @@ async function executeGitHubTool(name: string, input: any): Promise<string> {
     }
 
     if (name === "update_file") {
-      // Get current SHA for updates
       let sha: string | undefined
       try {
         const getRes = await fetch(
@@ -210,13 +218,10 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
           const toolUseBlocks: any[] = data.content.filter((b: any) => b.type === "tool_use")
           const textBlock = data.content.find((b: any) => b.type === "text")
 
-          // Any text from this turn
           if (textBlock?.text) controller.enqueue(encoder.encode(textBlock.text))
 
-          // Done — no tool calls
           if (toolUseBlocks.length === 0) break
 
-          // Execute each tool and stream status
           const toolResults: any[] = []
           for (const toolUse of toolUseBlocks) {
             const label = toolUse.name.replace(/_/g, " ")
@@ -226,7 +231,6 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
             toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: result })
           }
 
-          // Append to conversation and loop
           anthropicMessages = [
             ...anthropicMessages,
             { role: "assistant", content: data.content },
@@ -249,7 +253,7 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
   })
 }
 
-// ── Non-Anthropic provider (Ollama + xAI) ───────────────────────────────────
+// ── Streaming providers (OpenAI-compatible + Ollama) ─────────────────────────
 
 async function callProvider(messages: Message[], model: string): Promise<Response> {
   const provider = detectProvider(model)
@@ -268,7 +272,35 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
     })
   }
 
-  // Ollama
+  if (provider === "groq") {
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) throw new Error("GROQ_API_KEY not configured")
+    return fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    })
+  }
+
+  if (provider === "ollama-cloud") {
+    const apiKey = process.env.OLLAMA_CLOUD_API_KEY
+    if (!apiKey) throw new Error("OLLAMA_CLOUD_API_KEY not configured")
+    return fetch("https://ollama.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      }),
+    })
+  }
+
+  // Ollama (local/self-hosted)
   const apiUrl = process.env.OLLAMA_API_URL
   if (!apiUrl) throw new Error("OLLAMA_API_URL not configured")
   const headers: Record<string, string> = { "Content-Type": "application/json" }
@@ -288,14 +320,9 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
 
 function extractToken(line: string, provider: Provider): string {
   if (!line.trim()) return ""
-  if (provider === "anthropic") {
-    if (!line.startsWith("data: ")) return ""
-    try {
-      const data = JSON.parse(line.slice(6))
-      return data.type === "content_block_delta" ? data.delta?.text || "" : ""
-    } catch { return "" }
-  }
-  if (provider === "xai") {
+
+  // OpenAI-compatible SSE format (xAI, Groq, Ollama Cloud)
+  if (provider === "xai" || provider === "groq" || provider === "ollama-cloud") {
     if (!line.startsWith("data: ")) return ""
     const raw = line.slice(6).trim()
     if (raw === "[DONE]") return ""
@@ -304,6 +331,17 @@ function extractToken(line: string, provider: Provider): string {
       return data.choices?.[0]?.delta?.content || ""
     } catch { return "" }
   }
+
+  // Anthropic SSE (unused here — handled by handleAnthropicWithTools)
+  if (provider === "anthropic") {
+    if (!line.startsWith("data: ")) return ""
+    try {
+      const data = JSON.parse(line.slice(6))
+      return data.type === "content_block_delta" ? data.delta?.text || "" : ""
+    } catch { return "" }
+  }
+
+  // Ollama NDJSON
   try {
     const data = JSON.parse(line)
     return data.message?.content || ""
@@ -332,7 +370,7 @@ export async function POST(req: NextRequest) {
       return handleAnthropicWithTools(trimmed, model)
     }
 
-    // Ollama / xAI: standard streaming
+    // All other providers: standard streaming
     const response = await callProvider(trimmed, model)
 
     if (!response.ok) {
@@ -343,8 +381,10 @@ export async function POST(req: NextRequest) {
     if (!stream) {
       const data = await response.json()
       let content = ""
-      if (provider === "xai") content = data.choices?.[0]?.message?.content || "No response"
-      else content = data.message?.content || "No response"
+      if (provider === "xai" || provider === "groq" || provider === "ollama-cloud")
+        content = data.choices?.[0]?.message?.content || "No response"
+      else
+        content = data.message?.content || "No response"
       return NextResponse.json({ content })
     }
 

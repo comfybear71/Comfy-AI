@@ -47,6 +47,18 @@ const CONTEXT_LIMITS: Record<string, number> = {
   "grok-3-mini": 131072,
   "grok-2-vision-1212": 32768,
   "grok-2": 131072,
+  // Groq — cloud fast inference
+  "llama-3.1-8b-instant": 131072,
+  "llama-3.3-70b-versatile": 131072,
+  "llama-3.1-70b-versatile": 131072,
+  "mixtral-8x7b-32768": 32768,
+  // Ollama Cloud
+  "kimi-k2:1t-cloud": 131072,
+  "kimi-k2-thinking": 131072,
+  "deepseek-v3.1:671b-cloud": 131072,
+  "qwen3-coder:480b-cloud": 131072,
+  "gpt-oss:20b-cloud": 131072,
+  "gpt-oss:120b-cloud": 131072,
 }
 
 // Models that support image input
