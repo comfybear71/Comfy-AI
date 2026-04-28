@@ -32,7 +32,6 @@ export const MODELS: ModelDef[] = [
   // ── xAI (Grok) ──────────────────────────────────────────────────
   { id: "grok-3",             name: "Grok 3",              description: "Most capable · 131k ctx",     icon: Bot,      provider: "xai",          vision: false },
   { id: "grok-3-mini",        name: "Grok 3 Mini",         description: "Fast & efficient",             icon: Zap,      provider: "xai",          vision: false },
-  { id: "grok-2-vision-1212", name: "Grok 2 Vision",       description: "Vision capable",               icon: Eye,      provider: "xai",          vision: true  },
   // ── Groq (cloud · free tier) ────────────────────────────────────
   { id: "llama-3.1-8b-instant",      name: "Llama 3.1 8B",     description: "Groq · 500+ tok/s free",  icon: Zap,      provider: "groq",         vision: false },
   { id: "llama-3.3-70b-versatile",   name: "Llama 3.3 70B",    description: "Groq · powerful free",    icon: Brain,    provider: "groq",         vision: false },
