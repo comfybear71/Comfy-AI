@@ -22,14 +22,12 @@ interface HistoryButtonProps {
   currentConversationId: string | null
   onLoad: (conv: ConversationDetail) => void
   onNewChat: () => void
-  selectedRepo?: { name: string; owner: { login: string } } | null
 }
 
-export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat, selectedRepo }: HistoryButtonProps) {
+export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat }: HistoryButtonProps) {
   const [open, setOpen] = useState(false)
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [loading, setLoading] = useState(false)
-  const [showAll, setShowAll] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -49,11 +47,6 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
   useEffect(() => {
     if (open) refresh()
   }, [open, refresh])
-
-  // Reset showAll when repo changes
-  useEffect(() => {
-    setShowAll(false)
-  }, [selectedRepo?.name])
 
   const handleSelect = async (id: string) => {
     try {
@@ -79,12 +72,6 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
     }
   }
 
-  const filtered = selectedRepo && !showAll
-    ? conversations.filter((c) => c.repoName === selectedRepo.name)
-    : conversations
-
-  const hasOtherConvs = selectedRepo && !showAll && conversations.length > filtered.length
-
   return (
     <div className="relative">
       <button
@@ -100,18 +87,11 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="fixed right-3 top-[49px] w-80 max-w-[calc(100vw-1.5rem)] bg-[#161b22] rounded-xl border border-gray-700 shadow-xl z-50 max-h-[480px] flex flex-col">
-            <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold uppercase tracking-widest text-gray-500 shrink-0">History</span>
-                {selectedRepo && (
-                  <span className="text-xs text-emerald-400 truncate">
-                    {showAll ? "— all" : `— ${selectedRepo.name}`}
-                  </span>
-                )}
-              </div>
+            <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">History</span>
               <button
                 onClick={() => { onNewChat(); setOpen(false) }}
-                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 shrink-0"
+                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
               >
                 <Plus className="w-3.5 h-3.5" />
                 New chat
@@ -124,14 +104,10 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   Loading...
                 </div>
-              ) : filtered.length === 0 ? (
-                <div className="p-6 text-center text-sm text-gray-500">
-                  {selectedRepo && !showAll
-                    ? `No conversations for ${selectedRepo.name} yet`
-                    : "No conversations yet"}
-                </div>
+              ) : conversations.length === 0 ? (
+                <div className="p-6 text-center text-sm text-gray-500">No conversations yet</div>
               ) : (
-                filtered.map((conv) => {
+                conversations.map((conv) => {
                   const isActive = conv.id === currentConversationId
                   return (
                     <button
@@ -146,7 +122,7 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
                         <div className="text-sm text-gray-100 truncate">{conv.title || "Untitled"}</div>
                         <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-gray-500">
                           <span>{new Date(conv.updatedAt).toLocaleDateString()}</span>
-                          {conv.repoName && !selectedRepo && (
+                          {conv.repoName && (
                             <>
                               <span>·</span>
                               <span className="truncate">{conv.repoName}</span>
@@ -164,15 +140,6 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
                     </button>
                   )
                 })
-              )}
-
-              {hasOtherConvs && (
-                <button
-                  onClick={() => setShowAll(true)}
-                  className="w-full px-3 py-2.5 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-700/30 transition-colors text-center border-t border-gray-700/30"
-                >
-                  Show all conversations ({conversations.length})
-                </button>
               )}
             </div>
           </div>

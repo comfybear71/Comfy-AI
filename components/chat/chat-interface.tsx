@@ -5,7 +5,6 @@ import { Sidebar, type GitHubRepoItem, type WebhookEventItem } from "@/component
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { ModelPicker } from "./model-picker"
-import { HistoryButton } from "./history-button"
 import { MessageProps } from "./message"
 import { FileViewer } from "@/components/file-viewer"
 import { PRModal } from "@/components/pr-modal"
@@ -15,7 +14,8 @@ import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
   FolderOpen, FileCode, ChevronRight,
-  GitPullRequest, X, Loader2, StopCircle,
+  GitPullRequest, X, Loader2, StopCircle, Plus, Trash2,
+  CheckCircle, AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -45,8 +45,13 @@ export function ChatInterface() {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const lastSavedCountRef = useRef(0)
-  const savingRef = useRef(false)
+  const conversationIdRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep conversationIdRef in sync (avoids stale closure in handleSend)
+  useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
 
   // GitHub state
   const [githubConnected, setGithubConnected] = useState(false)
@@ -61,6 +66,9 @@ export function ChatInterface() {
   const [prModalOpen, setPrModalOpen] = useState(false)
   const [activePR, setActivePR] = useState<{ owner: string; repo: string; number: number; url: string } | null>(null)
   const [repoPanelOpen, setRepoPanelOpen] = useState(false)
+  const [repoPanelTab, setRepoPanelTab] = useState<"files" | "history">("files")
+  const [repoConversations, setRepoConversations] = useState<{ id: string; title: string | null; updatedAt: string }[]>([])
+  const [repoConversationsLoading, setRepoConversationsLoading] = useState(false)
   const [pinnedRepos, setPinnedRepos] = useState<string[]>([])
   const [repoSearch, setRepoSearch] = useState("")
 
@@ -83,49 +91,14 @@ export function ChatInterface() {
     return () => window.removeEventListener("keydown", onKey)
   }, [isLoading])
 
-  // ── Auto-save conversation when not streaming ────────────────────────────
-  useEffect(() => {
-    if (isLoading) return
-    if (messages.length === 0) return
-    if (messages.length === lastSavedCountRef.current) return
-    if (savingRef.current) return
-
-    const last = messages[messages.length - 1]
-    if (last.role === "assistant" && !last.content.trim()) return
-
-    const newSlice = messages.slice(lastSavedCountRef.current).map((m) => ({
-      role: m.role,
-      content: m.content,
-      metadata: m.images && m.images.length > 0 ? { hasImages: true } : {},
-    }))
-    if (newSlice.length === 0) return
-
-    savingRef.current = true
-    const repoContext = selectedRepo
-      ? { repoOwner: selectedRepo.owner.login, repoName: selectedRepo.name }
-      : undefined
-
-    fetch("/api/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: "default", conversationId, messages: newSlice, repoContext }),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data) => {
-        if (data?.conversationId && !conversationId) setConversationId(data.conversationId)
-        lastSavedCountRef.current = messages.length
-      })
-      .catch((err) => console.error("Failed to save conversation:", err))
-      .finally(() => { savingRef.current = false })
-  }, [messages, isLoading, conversationId, selectedRepo])
+  // Save is handled directly inside handleSend (not via effect) to avoid
+  // closure race conditions when the user switches repos mid-stream.
 
   // ── History button handlers ──────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
     setMessages([])
     setConversationId(null)
+    conversationIdRef.current = null
     lastSavedCountRef.current = 0
   }, [])
 
@@ -140,7 +113,35 @@ export function ChatInterface() {
       }))
     setMessages(loaded)
     setConversationId(conv.id)
+    conversationIdRef.current = conv.id
     lastSavedCountRef.current = loaded.length
+  }, [])
+
+  // ── Repo history ──────────────────────────────────────────────────────────
+  const loadRepoHistory = useCallback(async () => {
+    if (!selectedRepo) return
+    setRepoConversationsLoading(true)
+    try {
+      const res = await fetch("/api/conversations?userId=default")
+      if (res.ok) {
+        const data = await res.json()
+        setRepoConversations(
+          Array.isArray(data) ? data.filter((c: any) => c.repoName === selectedRepo.name) : []
+        )
+      }
+    } catch {}
+    finally { setRepoConversationsLoading(false) }
+  }, [selectedRepo])
+
+  useEffect(() => {
+    if (repoPanelOpen && repoPanelTab === "history") loadRepoHistory()
+  }, [repoPanelOpen, repoPanelTab, loadRepoHistory, conversationId])
+
+  useEffect(() => { setRepoPanelTab("files") }, [selectedRepo?.name])
+
+  const handleDeleteRepoConversation = useCallback(async (id: string) => {
+    await fetch(`/api/conversations?conversationId=${id}`, { method: "DELETE" })
+    setRepoConversations((prev) => prev.filter((c) => c.id !== id))
   }, [])
 
   // ── Startup: load prefs + docs together so we can auto-enable docs ───────
@@ -240,6 +241,11 @@ export function ChatInterface() {
   const handleSelectRepo = useCallback(async (repo: GitHubRepoItem) => {
     setSelectedRepo(repo); setFilePath([]); setRepoFiles([])
     setRepoPanelOpen(true); setSidebarOpen(false)
+    // Start a fresh conversation when switching repos
+    setMessages([])
+    setConversationId(null)
+    conversationIdRef.current = null
+    lastSavedCountRef.current = 0
     savePrefs({ settings: { selectedRepo: repo.full_name } })
     setFilesLoading(true)
     try {
@@ -402,6 +408,47 @@ export function ChatInterface() {
           full += decoder.decode(value, { stream: true })
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
         }
+
+        // Save conversation — done here (not in a useEffect) so selectedRepo and
+        // messages are captured from the exact moment the user hit Send, avoiding
+        // race conditions when the user switches repos before save fires.
+        if (full) {
+          const toSave = [
+            ...messages.slice(lastSavedCountRef.current),
+            { role: "user" as const, content: enrichedContent },
+            { role: "assistant" as const, content: full },
+          ].map((m) => ({ role: m.role, content: m.content, metadata: {} }))
+
+          const repoCtx = selectedRepo
+            ? { repoOwner: selectedRepo.owner.login, repoName: selectedRepo.name }
+            : undefined
+          const currentConvId = conversationIdRef.current
+          const newCount = messages.length + 2
+
+          setSaveStatus("saving")
+          fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: "default", conversationId: currentConvId, messages: toSave, repoContext: repoCtx }),
+          })
+            .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+            .then((data) => {
+              if (data?.conversationId) {
+                conversationIdRef.current = data.conversationId
+                setConversationId(data.conversationId)
+              }
+              lastSavedCountRef.current = newCount
+              setSaveStatus("saved")
+              if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current)
+              saveStatusTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000)
+            })
+            .catch((err) => {
+              console.error("Save failed:", err)
+              setSaveStatus("error")
+              if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current)
+              saveStatusTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000)
+            })
+        }
       } catch (err: any) {
         if (err.name === "AbortError") return
         setMessages((prev) =>
@@ -539,21 +586,16 @@ export function ChatInterface() {
             <Menu className="w-5 h-5 text-gray-400" />
           </button>
 
-          {/* Logo — tappable on mobile to open docs panel; blue dot when docs active */}
+          {/* Logo — blue dot on icon when docs active (mobile), full badge on desktop */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => setDocsPanelOpen((p) => !p)}
-              className="relative p-0 sm:cursor-default sm:pointer-events-none"
-              title={activeDocFiles.length > 0 ? `${activeDocFiles.length} doc(s) active — tap to manage` : "Tap to manage docs context"}
-              aria-label="Toggle docs panel"
-            >
+            <div className="relative">
               <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               {activeDocFiles.length > 0 && (
                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 ring-1 ring-[#161b22] sm:hidden" />
               )}
-            </button>
+            </div>
             <span className="font-semibold text-sm text-gray-100 whitespace-nowrap hidden sm:inline">Comfy AI</span>
           </div>
 
@@ -601,13 +643,25 @@ export function ChatInterface() {
             </button>
           )}
 
-          <HistoryButton
-            userId="default"
-            currentConversationId={conversationId}
-            onLoad={handleLoadConversation}
-            onNewChat={handleNewChat}
-            selectedRepo={selectedRepo}
-          />
+          {/* Save status */}
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1 text-[11px] text-gray-500 shrink-0">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="hidden sm:inline">Saving…</span>
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-[11px] text-emerald-500 shrink-0">
+              <CheckCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Saved</span>
+            </span>
+          )}
+          {saveStatus === "error" && (
+            <span className="flex items-center gap-1 text-[11px] text-red-400 shrink-0" title="Conversation failed to save">
+              <AlertCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Save failed</span>
+            </span>
+          )}
 
           <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
         </div>
@@ -678,59 +732,144 @@ export function ChatInterface() {
             </>
           )}
 
-          {/* Repo file browser panel */}
+          {/* Repo panel — Files + History tabs */}
           {repoPanelOpen && selectedRepo && (
             <>
-              <div className="fixed inset-0 bg-black/10 z-30 lg:hidden" onClick={() => setRepoPanelOpen(false)} />
-              <div className="w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
+              <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={() => setRepoPanelOpen(false)} />
+              <div className="fixed right-0 top-12 bottom-0 lg:relative lg:top-auto lg:bottom-auto w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
+
+                {/* Panel header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
                   <div className="flex items-center gap-2 min-w-0">
-                    <FolderOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <Github className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="text-sm font-medium truncate text-gray-100">{selectedRepo.name}</span>
                   </div>
                   <button onClick={() => setRepoPanelOpen(false)} className="p-1 hover:bg-gray-700 rounded-lg transition-colors">
                     <X className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
-                <div className="px-3 py-2">
-                  {filePath.length > 0 && (
+
+                {/* Tabs */}
+                <div className="flex border-b border-gray-700 shrink-0">
+                  {(["files", "history"] as const).map((tab) => (
                     <button
-                      onClick={() => {
-                        const parent = filePath.slice(0, -1)
-                        parent.length === 0 ? handleSelectRepo(selectedRepo) : handleOpenDirectory(parent)
-                      }}
-                      className="text-xs text-gray-400 hover:text-gray-100 flex items-center gap-1 mb-2"
+                      key={tab}
+                      onClick={() => setRepoPanelTab(tab)}
+                      className={cn(
+                        "flex-1 py-2 text-xs font-medium capitalize transition-colors border-b-2",
+                        repoPanelTab === tab
+                          ? "text-emerald-400 border-emerald-400"
+                          : "text-gray-500 border-transparent hover:text-gray-300"
+                      )}
                     >
-                      <ChevronRight className="w-3 h-3 rotate-180" />
-                      Back
+                      {tab}
                     </button>
-                  )}
-                  <p className="text-xs text-gray-600 font-mono truncate">{filePath.join("/") || "/"}</p>
+                  ))}
                 </div>
-                <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5 scrollbar-thin">
-                  {filesLoading ? (
-                    <div className="flex items-center gap-2 px-2 py-3 text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Loading…</span>
+
+                {/* Files tab */}
+                {repoPanelTab === "files" && (
+                  <>
+                    <div className="px-3 py-2 shrink-0">
+                      {filePath.length > 0 && (
+                        <button
+                          onClick={() => {
+                            const parent = filePath.slice(0, -1)
+                            parent.length === 0 ? handleSelectRepo(selectedRepo) : handleOpenDirectory(parent)
+                          }}
+                          className="text-xs text-gray-400 hover:text-gray-100 flex items-center gap-1 mb-2"
+                        >
+                          <ChevronRight className="w-3 h-3 rotate-180" />
+                          Back
+                        </button>
+                      )}
+                      <p className="text-xs text-gray-600 font-mono truncate">{filePath.join("/") || "/"}</p>
                     </div>
-                  ) : (
-                    repoFiles.map((item) => (
+                    <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+                      {filesLoading ? (
+                        <div className="flex items-center gap-2 px-2 py-3 text-gray-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">Loading…</span>
+                        </div>
+                      ) : (
+                        repoFiles.map((item) => (
+                          <button
+                            key={item.sha}
+                            onClick={() => item.type === "dir" ? handleOpenDirectory([...filePath, item.name]) : handleOpenFile([...filePath, item.name])}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-gray-700/50 transition-colors"
+                          >
+                            {item.type === "dir"
+                              ? <FolderOpen className="w-4 h-4 text-emerald-400/70 shrink-0" />
+                              : <FileCode className="w-4 h-4 text-gray-500 shrink-0" />
+                            }
+                            <span className={cn("text-sm truncate", item.type === "dir" ? "font-medium text-gray-200" : "text-gray-300")}>
+                              {item.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* History tab */}
+                {repoPanelTab === "history" && (
+                  <>
+                    <div className="px-3 py-2 border-b border-gray-700/50 shrink-0 flex items-center justify-between">
+                      <span className="text-xs text-gray-500">{selectedRepo.name} conversations</span>
                       <button
-                        key={item.sha}
-                        onClick={() => item.type === "dir" ? handleOpenDirectory([...filePath, item.name]) : handleOpenFile([...filePath, item.name])}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-gray-700/50 transition-colors"
+                        onClick={() => { handleNewChat(); setRepoPanelOpen(false) }}
+                        className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300"
                       >
-                        {item.type === "dir"
-                          ? <FolderOpen className="w-4 h-4 text-emerald-400/70 shrink-0" />
-                          : <FileCode className="w-4 h-4 text-gray-500 shrink-0" />
-                        }
-                        <span className={cn("text-sm truncate", item.type === "dir" ? "font-medium text-gray-200" : "text-gray-300")}>
-                          {item.name}
-                        </span>
+                        <Plus className="w-3 h-3" />
+                        New chat
                       </button>
-                    ))
-                  )}
-                </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {repoConversationsLoading ? (
+                        <div className="flex items-center justify-center gap-2 p-6 text-gray-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading…
+                        </div>
+                      ) : repoConversations.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-gray-500">No conversations yet for this repo</div>
+                      ) : (
+                        repoConversations.map((conv) => {
+                          const isActive = conv.id === conversationId
+                          return (
+                            <button
+                              key={conv.id}
+                              onClick={() => {
+                                fetch(`/api/conversations?conversationId=${conv.id}`)
+                                  .then((r) => r.ok ? r.json() : null)
+                                  .then((data) => { if (data) { handleLoadConversation(data); setRepoPanelOpen(false) } })
+                                  .catch(() => {})
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2.5 hover:bg-gray-700/50 transition-colors group flex items-start gap-2 border-b border-gray-700/30 last:border-0",
+                                isActive && "bg-gray-700/40"
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-gray-100 truncate">{conv.title || "Untitled"}</div>
+                                <div className="text-[11px] text-gray-500 mt-0.5">
+                                  {new Date(conv.updatedAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteRepoConversation(conv.id) }}
+                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400 transition-opacity shrink-0"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
