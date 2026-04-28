@@ -10,7 +10,7 @@ interface ModelPickerProps {
   onChange: (modelId: string) => void
 }
 
-const PROVIDERS: Provider[] = ["ollama", "anthropic", "xai"]
+const PROVIDERS: Provider[] = ["groq", "ollama-cloud", "anthropic", "xai", "ollama"]
 
 export function ModelPicker({ selectedModel, onChange }: ModelPickerProps) {
   const [open, setOpen] = React.useState(false)
@@ -26,7 +26,7 @@ export function ModelPicker({ selectedModel, onChange }: ModelPickerProps) {
         <SelectedIcon className="w-4 h-4 text-emerald-400" />
         <span className="text-gray-100 hidden sm:inline">{selected.name}</span>
         <span className="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">
-          {selected.provider === "ollama" ? "local" : selected.provider === "anthropic" ? "claude" : "grok"}
+          {{ ollama: "local", anthropic: "claude", xai: "grok", groq: "groq", "ollama-cloud": "cloud" }[selected.provider]}
         </span>
         <ChevronDown className={cn("w-3.5 h-3.5 text-gray-400 transition-transform", open && "rotate-180")} />
       </button>

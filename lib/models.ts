@@ -46,10 +46,10 @@ export const MODELS: ModelDef[] = [
 ]
 
 export const PROVIDER_LABELS: Record<Provider, string> = {
-  ollama:          "Ollama — Local",
+  ollama:          "Ollama — Local Only (not available on web)",
   anthropic:       "Anthropic — Claude",
   xai:             "xAI — Grok",
-  groq:            "Groq — Cloud",
+  groq:            "Groq — Cloud (free)",
   "ollama-cloud":  "Ollama — Cloud",
 }
 
@@ -68,4 +68,4 @@ export function getBestVisionModel(currentId: string): ModelDef {
   )
 }
 
-export const DEFAULT_MODEL_ID = "llama3.1:8b"
+export const DEFAULT_MODEL_ID = "llama-3.1-8b-instant"
