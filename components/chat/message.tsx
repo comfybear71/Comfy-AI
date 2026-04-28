@@ -66,6 +66,82 @@ function CodeBlock({ children, className, ...props }: any) {
   )
 }
 
+function Table({ children }: any) {
+  const [copiedCell, setCopiedCell] = useState<string | null>(null)
+
+  const handleCopyCell = async (text: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedCell(text)
+    setTimeout(() => setCopiedCell(null), 2000)
+  }
+
+  // Extract table data for responsive rendering
+  const tableBody = children?.find((child: any) => child?.type === "tbody")
+  const tableHead = children?.find((child: any) => child?.type === "thead")
+
+  if (!tableBody) {
+    return (
+      <div className="my-4 overflow-x-auto border border-gray-700 rounded-lg">
+        <table className="w-full text-sm">
+          {children}
+        </table>
+      </div>
+    )
+  }
+
+  const rows = tableBody.props?.children || []
+
+  return (
+    <div className="my-4 space-y-3">
+      {/* Desktop: traditional table view */}
+      <div className="hidden sm:block border border-gray-700 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          {tableHead && <thead className="bg-[#0d1117] border-b border-gray-700">{tableHead.props.children}</thead>}
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
+
+      {/* Mobile: stacked card view */}
+      <div className="sm:hidden space-y-3">
+        {rows.map((row: any, idx: number) => {
+          const cells = row.props?.children || []
+          if (cells.length < 2) return null
+
+          const fieldCell = cells[0]
+          const valueCell = cells[1]
+          const fieldText = extractText(fieldCell)
+          const valueText = extractText(valueCell)
+
+          return (
+            <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0d1117]">
+              <div className="text-xs font-semibold text-emerald-400 mb-2">{fieldText}</div>
+              <div className="text-sm text-gray-200 break-words font-mono">{valueText}</div>
+              {valueText && (
+                <button
+                  onClick={() => handleCopyCell(valueText)}
+                  className="mt-2 text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                >
+                  {copiedCell === valueText ? (
+                    <>
+                      <Check className="w-3 h-3" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function Message({ role, content, images, timestamp, isStreaming }: MessageProps) {
   const isUser = role === "user"
   const [expanded, setExpanded] = useState(false)
@@ -132,7 +208,7 @@ export function Message({ role, content, images, timestamp, isStreaming }: Messa
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
-                components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock }}
+                components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock, table: Table }}
               >
                 {content}
               </ReactMarkdown>
