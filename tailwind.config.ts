@@ -10,6 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        text: '#333',
         cream: {
           50: '#faf9f7',
           100: '#f5f4f0',
