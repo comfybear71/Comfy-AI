@@ -15,6 +15,7 @@ import {
   Sparkles, ChevronDown, Github, Menu,
   FolderOpen, FileCode, ChevronRight,
   GitPullRequest, X, Loader2, StopCircle, Plus, Trash2,
+  CheckCircle, AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -46,6 +47,8 @@ export function ChatInterface() {
   const lastSavedCountRef = useRef(0)
   const conversationIdRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const saveStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep conversationIdRef in sync (avoids stale closure in handleSend)
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
@@ -422,6 +425,7 @@ export function ChatInterface() {
           const currentConvId = conversationIdRef.current
           const newCount = messages.length + 2
 
+          setSaveStatus("saving")
           fetch("/api/conversations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -434,8 +438,16 @@ export function ChatInterface() {
                 setConversationId(data.conversationId)
               }
               lastSavedCountRef.current = newCount
+              setSaveStatus("saved")
+              if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current)
+              saveStatusTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000)
             })
-            .catch((err) => console.error("Save failed:", err))
+            .catch((err) => {
+              console.error("Save failed:", err)
+              setSaveStatus("error")
+              if (saveStatusTimerRef.current) clearTimeout(saveStatusTimerRef.current)
+              saveStatusTimerRef.current = setTimeout(() => setSaveStatus("idle"), 5000)
+            })
         }
       } catch (err: any) {
         if (err.name === "AbortError") return
@@ -629,6 +641,26 @@ export function ChatInterface() {
               <GitPullRequest className="w-3.5 h-3.5" />
               Create PR
             </button>
+          )}
+
+          {/* Save status */}
+          {saveStatus === "saving" && (
+            <span className="flex items-center gap-1 text-[11px] text-gray-500 shrink-0">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="hidden sm:inline">Saving…</span>
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span className="flex items-center gap-1 text-[11px] text-emerald-500 shrink-0">
+              <CheckCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Saved</span>
+            </span>
+          )}
+          {saveStatus === "error" && (
+            <span className="flex items-center gap-1 text-[11px] text-red-400 shrink-0" title="Conversation failed to save">
+              <AlertCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Save failed</span>
+            </span>
           )}
 
           <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
