@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Send, Paperclip, X } from "lucide-react"
+import { Send, Paperclip, X, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -16,6 +16,7 @@ const MAX_IMAGES = 5
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("")
   const [images, setImages] = useState<string[]>([])
+  const [attachError, setAttachError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -36,6 +37,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     onSend(input.trim(), images.length > 0 ? images : undefined)
     setInput("")
     setImages([])
+    setAttachError(null)
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
     }
@@ -52,21 +54,23 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     const files = e.target.files
     if (!files) return
 
+    setAttachError(null)
     const remainingSlots = MAX_IMAGES - images.length
     if (remainingSlots <= 0) {
-      alert(`Maximum ${MAX_IMAGES} images per message`)
+      setAttachError(`Maximum ${MAX_IMAGES} images per message`)
       return
     }
 
     const toProcess = Array.from(files).slice(0, remainingSlots)
+    const errors: string[] = []
 
     toProcess.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        alert(`Skipped ${file.name}: not an image`)
+        errors.push(`${file.name}: not an image`)
         return
       }
       if (file.size > MAX_FILE_SIZE) {
-        alert(`Skipped ${file.name}: exceeds 5MB limit`)
+        errors.push(`${file.name}: exceeds 5MB limit`)
         return
       }
 
@@ -74,7 +78,6 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
       reader.onload = (event) => {
         const result = event.target?.result as string
         if (result) {
-          // Strip data:image/...;base64, prefix
           const base64 = result.split(",")[1] || result
           setImages((prev) => [...prev, base64])
         }
@@ -82,7 +85,10 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
       reader.readAsDataURL(file)
     })
 
-    // Reset input so the same file can be selected again
+    if (errors.length > 0) {
+      setAttachError(`Skipped: ${errors.join("; ")}`)
+    }
+
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -162,6 +168,12 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
           </Button>
         </div>
 
+        {attachError && (
+          <div className="flex items-center gap-1.5 mt-1 px-1">
+            <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+            <p className="text-xs text-red-400">{attachError}</p>
+          </div>
+        )}
         <div className="text-center mt-2">
           <p className="text-xs text-gray-500">
             Comfy AI can make mistakes. Please verify important information.

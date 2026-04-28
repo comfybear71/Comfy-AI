@@ -38,26 +38,25 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { theme, pinnedRepos } = body
+    const db = getDb()
 
-    const existing = await getDb()
+    const [existing] = await db
       .select()
       .from(userPrefs)
       .where(eq(userPrefs.userId, DEFAULT_USER_ID))
       .limit(1)
 
-    if (existing.length > 0) {
-      // Update
-      await getDb()
+    if (existing) {
+      await db
         .update(userPrefs)
         .set({
-          theme: theme ?? existing[0].theme,
-          pinnedRepos: pinnedRepos ?? existing[0].pinnedRepos,
+          theme: theme ?? existing.theme,
+          pinnedRepos: pinnedRepos ?? existing.pinnedRepos,
           updatedAt: new Date(),
         })
         .where(eq(userPrefs.userId, DEFAULT_USER_ID))
     } else {
-      // Insert
-      await getDb().insert(userPrefs).values({
+      await db.insert(userPrefs).values({
         userId: DEFAULT_USER_ID,
         theme: theme || "system",
         pinnedRepos: pinnedRepos || [],

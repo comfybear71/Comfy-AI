@@ -13,13 +13,27 @@ export function estimateImageTokens(images?: string[]): number {
 }
 
 const CONTEXT_LIMITS: Record<string, number> = {
-  "llama3.1:8b": 8192,
+  "llama3.1:8b": 131072,
+  "llama3.1:70b": 131072,
+  "llama3:8b": 8192,
   "codellama:7b": 16384,
-  "llama3.2:3b": 128000,
+  "codellama:13b": 16384,
+  "llama3.2:3b": 131072,
+  "llama3.2:1b": 131072,
   "llava:7b": 4096,
-  "llama3.2-vision": 128000,
-  "moondream:1.8b": 8192,
+  "llava:13b": 4096,
+  "llama3.2-vision": 131072,
+  "moondream:1.8b": 2048,
   "bakllava": 4096,
+  "mistral:7b": 32768,
+  "mixtral:8x7b": 32768,
+  "phi3:mini": 131072,
+  "phi3:medium": 131072,
+  "deepseek-coder:6.7b": 16384,
+  "deepseek-coder-v2": 131072,
+  "qwen2.5-coder:7b": 131072,
+  "gemma2:9b": 8192,
+  "gemma2:27b": 8192,
 }
 
 const SAFETY_MARGIN = 500 // tokens reserved for response

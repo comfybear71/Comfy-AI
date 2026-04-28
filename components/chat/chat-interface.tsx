@@ -23,6 +23,7 @@ import {
   GitPullRequest,
   X,
   Loader2,
+  StopCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -130,6 +131,17 @@ export function ChatInterface() {
   const [webhookEvents, setWebhookEvents] = useState<WebhookEventItem[]>([])
   const [webhookEventsLoading, setWebhookEventsLoading] = useState(false)
 
+  // Escape key stops generation
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isLoading) {
+        abortRef.current?.abort()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isLoading])
+
   // Load prefs from Neon on mount
   useEffect(() => {
     fetch("/api/user/prefs")
@@ -200,6 +212,7 @@ export function ChatInterface() {
   const handleSelectRepo = useCallback(async (repo: GitHubRepoItem) => {
     setSelectedRepo(repo)
     setFilePath([])
+    setRepoFiles([])
     setRepoPanelOpen(true)
     setSidebarOpen(false)
 
@@ -221,10 +234,10 @@ export function ChatInterface() {
   }, [])
 
   const handleOpenFile = useCallback(
-    async (filePath: string[]) => {
+    async (segments: string[]) => {
       if (!selectedRepo) return
       try {
-        const path = filePath.join("/")
+        const path = segments.join("/")
         const res = await fetch(
           `/api/github/repo/${selectedRepo.owner.login}/${selectedRepo.name}/files/${path}`
         )
@@ -419,43 +432,31 @@ export function ChatInterface() {
 
   const handleSelectEvent = useCallback(
     async (event: WebhookEventItem) => {
-      // Mark as read
       fetch(`/api/webhooks/events/${event.id}/read`, { method: "POST" }).catch(() => {})
       setWebhookEvents((prev) =>
         prev.map((e) => (e.id === event.id ? { ...e, read: true } : e))
       )
 
-      // Build summary message
       let summary = ""
       if (event.eventType === "pull_request") {
         const pr = event.payload?.pull_request
-        summary = `Event: PR #${pr?.number || "?"} ${event.action} in ${event.repoOwner}/${event.repoName}. Title: ${pr?.title || event.title || "No title"}. URL: ${pr?.html_url || ""}`
+        summary = `GitHub event: PR #${pr?.number || "?"} ${event.action} in ${event.repoOwner}/${event.repoName}.\nTitle: ${pr?.title || event.title || "No title"}.\nURL: ${pr?.html_url || ""}\n\nWhat should I know about this PR?`
       } else if (event.eventType === "workflow_run") {
         const run = event.payload?.workflow_run
         const branch = run?.head_branch || "unknown"
-        summary = `Event: CI ${event.action} on ${branch} in ${event.repoOwner}/${event.repoName}. Workflow: ${run?.name || event.title || ""}. URL: ${run?.html_url || ""}`
+        summary = `GitHub event: CI ${event.action} on branch "${branch}" in ${event.repoOwner}/${event.repoName}.\nWorkflow: ${run?.name || event.title || ""}.\nURL: ${run?.html_url || ""}\n\nCan you summarise what happened and suggest next steps?`
       } else if (event.eventType === "push") {
         const branch = event.title || event.payload?.ref?.replace("refs/heads/", "") || "unknown"
         const commits = event.payload?.commits?.length || 0
-        summary = `Event: Push to ${branch} in ${event.repoOwner}/${event.repoName}. Commits: ${commits}. URL: ${event.payload?.repository?.html_url || ""}`
+        const commitMessages = (event.payload?.commits || []).slice(0, 5).map((c: any) => `- ${c.message}`).join("\n")
+        summary = `GitHub event: Push to branch "${branch}" in ${event.repoOwner}/${event.repoName}.\nCommits (${commits}):\n${commitMessages}\n\nBriefly summarise these changes.`
       } else {
-        summary = `Event: ${event.eventType} in ${event.repoOwner}/${event.repoName}.`
+        summary = `GitHub event: ${event.eventType} (${event.action}) in ${event.repoOwner}/${event.repoName}. What does this mean?`
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: "user",
-          content: summary,
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ])
+      handleSend(summary)
     },
-    []
+    [handleSend]
   )
 
   const selectedModelInfo = MODELS.find((m) => m.id === selectedModel) || MODELS[0]
@@ -515,6 +516,16 @@ export function ChatInterface() {
           </div>
 
           <div className="flex items-center gap-2">
+            {isLoading && (
+              <button
+                onClick={() => abortRef.current?.abort()}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 rounded-lg transition-colors"
+                title="Stop generation (Escape)"
+              >
+                <StopCircle className="w-3.5 h-3.5" />
+                Stop
+              </button>
+            )}
             {selectedRepo && (
               <button
                 onClick={() => setPrModalOpen(true)}
@@ -646,17 +657,17 @@ export function ChatInterface() {
                 className="fixed inset-0 bg-black/10 z-30 lg:hidden"
                 onClick={() => setRepoPanelOpen(false)}
               />
-              <div className="w-72 bg-white border-l border-cream-200 flex flex-col z-40">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-cream-200">
+              <div className="w-72 bg-[#161b22] border-l border-gray-700 flex flex-col z-40">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
                   <div className="flex items-center gap-2 min-w-0">
-                    <FolderOpen className="w-4 h-4 text-claude-orange shrink-0" />
-                    <span className="text-sm font-medium truncate">{selectedRepo.name}</span>
+                    <FolderOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-sm font-medium truncate text-gray-100">{selectedRepo.name}</span>
                   </div>
                   <button
                     onClick={() => setRepoPanelOpen(false)}
-                    className="p-1 hover:bg-cream-100 rounded-lg transition-colors"
+                    className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
                   >
-                    <X className="w-4 h-4 text-claude-gray" />
+                    <X className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
 
@@ -671,20 +682,20 @@ export function ChatInterface() {
                           handleOpenDirectory(parent)
                         }
                       }}
-                      className="text-xs text-claude-gray hover:text-claude-dark flex items-center gap-1 mb-2"
+                      className="text-xs text-gray-400 hover:text-gray-100 flex items-center gap-1 mb-2"
                     >
                       <ChevronRight className="w-3 h-3 rotate-180" />
                       Back
                     </button>
                   )}
-                  <p className="text-xs text-claude-gray font-mono truncate">
+                  <p className="text-xs text-gray-500 font-mono truncate">
                     {filePath.join("/") || "/"}
                   </p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+                <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5 scrollbar-thin">
                   {filesLoading ? (
-                    <div className="flex items-center gap-2 px-2 py-3 text-claude-gray">
+                    <div className="flex items-center gap-2 px-2 py-3 text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm">Loading...</span>
                     </div>
@@ -699,19 +710,19 @@ export function ChatInterface() {
                             handleOpenFile([...filePath, item.name])
                           }
                         }}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-cream-50 transition-colors"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-gray-700/50 transition-colors"
                       >
                         {item.type === "dir" ? (
-                          <FolderOpen className="w-4 h-4 text-claude-orange shrink-0" />
+                          <FolderOpen className="w-4 h-4 text-emerald-400/70 shrink-0" />
                         ) : (
-                          <FileCode className="w-4 h-4 text-claude-gray shrink-0" />
+                          <FileCode className="w-4 h-4 text-gray-500 shrink-0" />
                         )}
                         <span
                           className={cn(
                             "text-sm truncate",
                             item.type === "dir"
-                              ? "font-medium text-claude-dark"
-                              : "text-claude-dark"
+                              ? "font-medium text-gray-200"
+                              : "text-gray-300"
                           )}
                         >
                           {item.name}

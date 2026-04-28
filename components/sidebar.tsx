@@ -159,8 +159,8 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-72 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:hidden"
+          "fixed lg:relative inset-y-0 left-0 z-50 w-72 flex-shrink-0 bg-[#f5f5f0] dark:bg-gray-800 border-r border-cream-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="p-4 flex items-center justify-between">

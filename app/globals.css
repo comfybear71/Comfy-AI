@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import 'highlight.js/styles/github.css';
+@import 'highlight.js/styles/github-dark.css';
 
 @layer base {
   :root {
@@ -39,21 +39,28 @@
 }
 
 @layer components {
+  /* Dark code blocks to match the chat dark theme */
   .prose pre {
-    @apply bg-[#f6f8fa] rounded-lg p-4 overflow-x-auto text-sm;
+    @apply bg-[#0d1117] rounded-lg p-4 overflow-x-auto text-sm border border-gray-700;
   }
 
   .prose code {
-    @apply bg-[#f6f8fa] px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-[#161b22] text-emerald-300 px-1.5 py-0.5 rounded text-sm font-mono border border-gray-700/50;
   }
 
   .prose pre code {
-    @apply bg-transparent p-0;
+    @apply bg-transparent p-0 border-0 text-gray-100;
+  }
+
+  /* Force hljs blocks to always use dark background */
+  .hljs {
+    background: #0d1117 !important;
+    color: #e6edf3 !important;
   }
 
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -65,7 +72,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.1);
     border-radius: 20px;
   }
 }
