@@ -47,11 +47,14 @@ export function getModel(id: string): ModelDef {
 export function getBestVisionModel(currentId: string): ModelDef {
   const current = getModel(currentId)
   if (current.vision) return current
-  // Prefer same provider first
-  const sameProvider = MODELS.find((m) => m.provider === current.provider && m.vision)
-  if (sameProvider) return sameProvider
-  // Fallback: claude-sonnet (always available if key set, high quality)
-  return MODELS.find((m) => m.id === "claude-sonnet-4-6") ?? MODELS.find((m) => m.vision) ?? MODELS[0]
+  // Prefer Claude Haiku — always reliable for vision (vs local Ollama vision models
+  // which may not be running). Falls back to Sonnet, then any vision model.
+  return (
+    MODELS.find((m) => m.id === "claude-haiku-4-5-20251001") ??
+    MODELS.find((m) => m.id === "claude-sonnet-4-6") ??
+    MODELS.find((m) => m.vision) ??
+    MODELS[0]
+  )
 }
 
 export const DEFAULT_MODEL_ID = "llama3.1:8b"
