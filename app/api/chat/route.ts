@@ -54,7 +54,7 @@ function toAnthropicMessages(messages: Message[]) {
 
 // ── Anthropic handler with tool loop ────────────────────────────────────────
 
-function handleAnthropicWithTools(messages: Message[], model: string): Response {
+function handleAnthropicWithTools(messages: Message[], model: string, toolsEnabled: boolean): Response {
   const apiKey = process.env.ANTHROPIC_API_KEY!
   const system = messages.find((m) => m.role === "system")?.content
   let anthropicMessages = toAnthropicMessages(messages)
@@ -77,7 +77,7 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
               stream: false,
               ...(system ? { system } : {}),
               messages: anthropicMessages,
-              tools: anthropicTools,
+              ...(toolsEnabled ? { tools: anthropicTools } : {}),
             }),
           })
 
@@ -126,32 +126,31 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
   })
 }
 
-// ── OpenAI-compatible handler with tool loop (Groq / xAI / Ollama Cloud) ────
+// ── OpenAI-compatible handler with tool loop (Groq, xAI, Ollama Cloud) ──────
 
-type OpenAIProvider = "xai" | "groq" | "ollama-cloud"
-
-function getOpenAIEndpoint(provider: OpenAIProvider): { url: string; apiKey: string } {
-  if (provider === "xai") {
-    return { url: "https://api.x.ai/v1/chat/completions", apiKey: process.env.XAI_API_KEY! }
-  }
-  if (provider === "groq") {
-    return { url: "https://api.groq.com/openai/v1/chat/completions", apiKey: process.env.GROQ_API_KEY! }
-  }
-  return { url: "https://ollama.com/v1/chat/completions", apiKey: process.env.OLLAMA_CLOUD_API_KEY! }
-}
-
-function handleOpenAIWithTools(messages: Message[], model: string, provider: OpenAIProvider): Response {
-  const { url, apiKey } = getOpenAIEndpoint(provider)
+function handleOpenAIWithTools(messages: Message[], model: string, provider: Provider): Response {
   const encoder = new TextEncoder()
 
-  // OpenAI-format messages (text only — these providers don't take images here)
+  let endpoint = ""
+  let apiKey = ""
+  if (provider === "xai") {
+    endpoint = "https://api.x.ai/v1/chat/completions"
+    apiKey = process.env.XAI_API_KEY || ""
+  } else if (provider === "groq") {
+    endpoint = "https://api.groq.com/openai/v1/chat/completions"
+    apiKey = process.env.GROQ_API_KEY || ""
+  } else {
+    endpoint = "https://ollama.com/v1/chat/completions"
+    apiKey = process.env.OLLAMA_CLOUD_API_KEY || ""
+  }
+
   let convo: any[] = messages.map((m) => ({ role: m.role, content: m.content }))
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
         for (let i = 0; i < 6; i++) {
-          const res = await fetch(url, {
+          const res = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
@@ -170,36 +169,32 @@ function handleOpenAIWithTools(messages: Message[], model: string, provider: Ope
           }
 
           const data = await res.json()
-          const choice = data.choices?.[0]
-          const msg = choice?.message
-          if (!msg) {
-            controller.enqueue(encoder.encode(`**Error**: empty response from ${provider}`))
-            break
-          }
+          const msg = data.choices?.[0]?.message
+          if (!msg) break
 
           if (msg.content) controller.enqueue(encoder.encode(msg.content))
 
           const toolCalls = msg.tool_calls || []
           if (toolCalls.length === 0) break
 
-          // Append assistant message with tool_calls so the model sees its own request
+          // Echo assistant's tool_calls into convo for next turn
           convo.push({
             role: "assistant",
             content: msg.content || "",
             tool_calls: toolCalls,
           })
 
-          for (const call of toolCalls) {
-            const name = call.function?.name
-            let input: any = {}
-            try { input = JSON.parse(call.function?.arguments || "{}") } catch {}
-            const label = name?.replace(/_/g, " ") || "tool"
-            controller.enqueue(encoder.encode(`\n\n🔧 **${label}**: \`${JSON.stringify(input).slice(0, 120)}\`\n`))
-            const result = await executeGitHubTool(name, input)
+          for (const tc of toolCalls) {
+            const fnName = tc.function?.name
+            let args: any = {}
+            try { args = JSON.parse(tc.function?.arguments || "{}") } catch {}
+            const label = fnName?.replace(/_/g, " ") || "tool"
+            controller.enqueue(encoder.encode(`\n\n🔧 **${label}**: \`${JSON.stringify(args).slice(0, 120)}\`\n`))
+            const result = await executeGitHubTool(fnName, args)
             controller.enqueue(encoder.encode(`> ${result}\n`))
             convo.push({
               role: "tool",
-              tool_call_id: call.id,
+              tool_call_id: tc.id,
               content: result,
             })
           }
@@ -220,7 +215,7 @@ function handleOpenAIWithTools(messages: Message[], model: string, provider: Ope
   })
 }
 
-// ── Streaming providers (no tools — fallback path) ──────────────────────────
+// ── Streaming providers (no tools) ──────────────────────────────────────────
 
 async function callProvider(messages: Message[], model: string): Promise<Response> {
   const provider = detectProvider(model)
@@ -288,7 +283,6 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
 function extractToken(line: string, provider: Provider): string {
   if (!line.trim()) return ""
 
-  // OpenAI-compatible SSE format (xAI, Groq, Ollama Cloud)
   if (provider === "xai" || provider === "groq" || provider === "ollama-cloud") {
     if (!line.startsWith("data: ")) return ""
     const raw = line.slice(6).trim()
@@ -299,7 +293,6 @@ function extractToken(line: string, provider: Provider): string {
     } catch { return "" }
   }
 
-  // Anthropic SSE (unused here — handled by handleAnthropicWithTools)
   if (provider === "anthropic") {
     if (!line.startsWith("data: ")) return ""
     try {
@@ -308,7 +301,6 @@ function extractToken(line: string, provider: Provider): string {
     } catch { return "" }
   }
 
-  // Ollama NDJSON
   try {
     const data = JSON.parse(line)
     return data.message?.content || ""
@@ -321,35 +313,33 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, model = "llama3.1:8b", stream = true } = await req.json()
 
-    const supportsTools = modelSupportsTools(model)
-    const baseSystem = (process.env.SYSTEM_PROMPT || "").trim()
-    const modelLine = `\nCURRENT MODEL: You are powered by ${model}. When asked what model you are, say exactly: "I'm Comfy AI, currently powered by ${model}. You can change models using the picker in the header."`
-    const noToolsLine = supportsTools ? "" : `\n${NO_TOOLS_NOTICE}`
-    const fullSystem = `${baseSystem}${modelLine}${noToolsLine}`.trim()
+    const toolsEnabled = modelSupportsTools(model)
 
-    const messagesWithSystem = fullSystem
-      ? [{ role: "system", content: fullSystem }, ...messages]
+    const baseSystem = process.env.SYSTEM_PROMPT?.trim() || ""
+    const modelLine = `\nCURRENT MODEL: You are powered by ${model}. When asked what model you are, say exactly: "I'm Comfy AI, currently powered by ${model}. You can change models using the picker in the header."`
+    const toolsNotice = toolsEnabled ? "" : `\n\n${NO_TOOLS_NOTICE}`
+    const finalSystem = baseSystem + modelLine + toolsNotice
+
+    const messagesWithSystem = finalSystem
+      ? [{ role: "system", content: finalSystem }, ...messages]
       : messages
 
     const provider = detectProvider(model)
     const { trimmed } = trimMessagesToFit(messagesWithSystem, model)
 
-    // Anthropic: tool loop (always — all Claude models in TOOL_CAPABLE_MODELS)
+    // Anthropic: tool loop (tools gated by toolsEnabled)
     if (provider === "anthropic") {
       const apiKey = process.env.ANTHROPIC_API_KEY
       if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 })
-      return handleAnthropicWithTools(trimmed, model)
+      return handleAnthropicWithTools(trimmed, model, toolsEnabled)
     }
 
-    // Groq / xAI / Ollama Cloud: tool loop ONLY for tool-capable models
-    if ((provider === "xai" || provider === "groq" || provider === "ollama-cloud") && supportsTools) {
-      const keyVar =
-        provider === "xai" ? "XAI_API_KEY" : provider === "groq" ? "GROQ_API_KEY" : "OLLAMA_CLOUD_API_KEY"
-      if (!process.env[keyVar]) return NextResponse.json({ error: `${keyVar} not configured` }, { status: 500 })
+    // Tool-capable cloud providers (Groq 70B, Grok 3, Ollama Cloud big models)
+    if (toolsEnabled && (provider === "groq" || provider === "xai" || provider === "ollama-cloud")) {
       return handleOpenAIWithTools(trimmed, model, provider)
     }
 
-    // All non-tool-capable paths: standard streaming, no tools
+    // Everyone else: plain streaming (no tools)
     const response = await callProvider(trimmed, model)
 
     if (!response.ok) {
