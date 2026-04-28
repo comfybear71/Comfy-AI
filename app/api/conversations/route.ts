@@ -1,97 +1,101 @@
 import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { db } from "@/lib/db"
+import { conversations, messages } from "@/lib/db/schema"
+import { eq, desc, count, and } from "drizzle-orm"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-// POST: create or append messages to a conversation
-// Body: { userId, conversationId?, messages: [{role, content}], repoContext? }
-export async function POST(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, conversationId, messages, repoContext } = body
+    const searchParams = request.nextUrl.searchParams
+    const limit = parseInt(searchParams.get("limit") || "20")
+    
+    // Get conversations with message counts
+    const conversationData = await db
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        createdAt: conversations.createdAt,
+        repoName: conversations.repoName,
+        messageCount: count(messages.id),
+      })
+      .from(conversations)
+      .leftJoin(messages, eq(conversations.id, messages.conversationId))
+      .groupBy(conversations.id, conversations.title, conversations.createdAt, conversations.repoName)
+      .orderBy(desc(conversations.createdAt))
+      .limit(limit)
 
-    if (!userId || !Array.isArray(messages)) {
-      return NextResponse.json({ error: "userId and messages[] required" }, { status: 400 })
-    }
-
-    let convId = conversationId
-
-    // Create conversation if none provided
-    if (!convId) {
-      const rows = await sql`
-        INSERT INTO conversations (user_id, created_at, updated_at)
-        VALUES (${userId}, NOW(), NOW())
-        RETURNING id
-      `
-      convId = rows[0].id
-    } else {
-      await sql`UPDATE conversations SET updated_at = NOW() WHERE id = ${convId}`
-    }
-
-    // Insert messages
-    for (const m of messages) {
-      if (!m.role || !m.content) continue
-      await sql`
-        INSERT INTO messages (conversation_id, role, content, created_at)
-        VALUES (${convId}, ${m.role}, ${m.content}, NOW())
-      `
-    }
-
-    return NextResponse.json({ success: true, conversationId: convId })
-  } catch (err: any) {
-    console.error("POST /api/conversations error:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json(conversationData)
+  } catch (error) {
+    console.error("Error fetching conversations:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch conversations" },
+      { status: 500 }
+    )
   }
 }
 
-// GET: list user conversations OR fetch single conversation with messages
-// ?userId=...           → list (most recent first, with first user message preview)
-// ?conversationId=...   → full conversation with all messages
-export async function GET(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get("userId")
-    const conversationId = searchParams.get("conversationId")
+    const body = await request.json()
+    const { id, title, repoName } = body
 
-    if (conversationId) {
-      const conv = await sql`SELECT * FROM conversations WHERE id = ${conversationId}`
-      if (conv.length === 0) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 })
-      }
-      const msgs = await sql`
-        SELECT id, role, content, created_at
-        FROM messages
-        WHERE conversation_id = ${conversationId}
-        ORDER BY created_at ASC
-      `
-      return NextResponse.json({ ...conv[0], messages: msgs })
+    if (!id || !title) {
+      return NextResponse.json(
+        { error: "ID and title are required" },
+        { status: 400 }
+      )
     }
 
-    if (userId) {
-      const rows = await sql`
-        SELECT
-          c.id,
-          c.created_at,
-          c.updated_at,
-          (
-            SELECT content FROM messages
-            WHERE conversation_id = c.id AND role = 'user'
-            ORDER BY created_at ASC LIMIT 1
-          ) AS preview,
-          (
-            SELECT COUNT(*) FROM messages WHERE conversation_id = c.id
-          ) AS message_count
-        FROM conversations c
-        WHERE c.user_id = ${userId}
-        ORDER BY c.updated_at DESC
-        LIMIT 50
-      `
-      return NextResponse.json(rows)
+    // Check if conversation already exists
+    const existing = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, id))
+      .limit(1)
+
+    if (existing.length === 0) {
+      // Create new conversation
+      await db.insert(conversations).values({
+        id,
+        title,
+        repoName: repoName || null,
+        createdAt: new Date(),
+      })
     }
 
-    return NextResponse.json({ error: "userId or conversationId required" }, { status: 400 })
-  } catch (err: any) {
-    console.error("GET /api/conversations error:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error saving conversation:", error)
+    return NextResponse.json(
+      { error: "Failed to save conversation" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Conversation ID is required" },
+        { status: 400 }
+      )
+    }
+
+    // Delete messages first (cascade)
+    await db.delete(messages).where(eq(messages.conversationId, id))
+    
+    // Delete conversation
+    await db.delete(conversations).where(eq(conversations.id, id))
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting conversation:", error)
+    return NextResponse.json(
+      { error: "Failed to delete conversation" },
+      { status: 500 }
+    )
   }
 }
