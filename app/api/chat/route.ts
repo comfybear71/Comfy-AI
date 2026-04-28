@@ -10,6 +10,15 @@ function detectProvider(model: string): Provider {
   return "ollama"
 }
 
+function detectImageMediaType(base64: string): string {
+  const prefix = base64.slice(0, 12)
+  if (prefix.startsWith("iVBORw")) return "image/png"
+  if (prefix.startsWith("/9j/")) return "image/jpeg"
+  if (prefix.startsWith("R0lGOD")) return "image/gif"
+  if (prefix.startsWith("UklGR")) return "image/webp"
+  return "image/png"
+}
+
 // Anthropic requires a specific message format for images
 function toAnthropicMessages(messages: Message[]) {
   return messages
@@ -19,7 +28,7 @@ function toAnthropicMessages(messages: Message[]) {
       if (m.images && m.images.length > 0) {
         const content: any[] = m.images.map((img) => ({
           type: "image",
-          source: { type: "base64", media_type: "image/jpeg", data: img },
+          source: { type: "base64", media_type: detectImageMediaType(img), data: img },
         }))
         if (m.content) content.push({ type: "text", text: m.content })
         return { role, content }

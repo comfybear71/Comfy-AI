@@ -21,10 +21,10 @@ export function ModelPicker({ selectedModel, onChange }: ModelPickerProps) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#21262d] border border-gray-700 hover:bg-gray-700 transition-colors text-sm"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#21262d] border border-gray-700 hover:bg-gray-700 transition-colors text-sm shrink-0"
       >
         <SelectedIcon className="w-4 h-4 text-emerald-400" />
-        <span className="text-gray-100">{selected.name}</span>
+        <span className="text-gray-100 hidden sm:inline">{selected.name}</span>
         <span className="text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">
           {selected.provider === "ollama" ? "local" : selected.provider === "anthropic" ? "claude" : "grok"}
         </span>
