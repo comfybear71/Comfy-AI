@@ -317,8 +317,9 @@ export async function POST(req: NextRequest) {
     const { messages, model = "llama3.1:8b", stream = true } = await req.json()
 
     const systemPrompt = process.env.SYSTEM_PROMPT
+    const modelLine = `\nCURRENT MODEL: You are powered by ${model}. When asked what model you are, say exactly: "I'm Comfy AI, currently powered by ${model}. You can change models using the picker in the header."`
     const messagesWithSystem = systemPrompt?.trim()
-      ? [{ role: "system", content: systemPrompt.trim() }, ...messages]
+      ? [{ role: "system", content: systemPrompt.trim() + modelLine }, ...messages]
       : messages
 
     const provider = detectProvider(model)
