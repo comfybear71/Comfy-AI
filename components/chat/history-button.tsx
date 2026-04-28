@@ -86,7 +86,7 @@ export function HistoryButton({ userId, currentConversationId, onLoad, onNewChat
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-80 bg-[#161b22] rounded-xl border border-gray-700 shadow-xl z-50 max-h-[480px] flex flex-col">
+          <div className="fixed right-3 top-[49px] w-80 max-w-[calc(100vw-1.5rem)] bg-[#161b22] rounded-xl border border-gray-700 shadow-xl z-50 max-h-[480px] flex flex-col">
             <div className="px-3 py-2 border-b border-gray-700 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-widest text-gray-500">History</span>
               <button

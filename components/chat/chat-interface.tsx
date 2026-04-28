@@ -110,7 +110,10 @@ export function ChatInterface() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: "default", conversationId, messages: newSlice, repoContext }),
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data) => {
         if (data?.conversationId && !conversationId) setConversationId(data.conversationId)
         lastSavedCountRef.current = messages.length
