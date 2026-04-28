@@ -5,6 +5,7 @@ import { Sidebar, type GitHubRepoItem, type WebhookEventItem } from "@/component
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { ModelPicker } from "./model-picker"
+import { HistoryButton } from "./history-button"
 import { MessageProps } from "./message"
 import { FileViewer } from "@/components/file-viewer"
 import { PRModal } from "@/components/pr-modal"
@@ -42,6 +43,9 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<MessageProps[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const lastSavedCountRef = useRef(0)
+  const savingRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // GitHub state
@@ -78,6 +82,63 @@ export function ChatInterface() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [isLoading])
+
+  // ── Auto-save conversation when not streaming ────────────────────────────
+  useEffect(() => {
+    if (isLoading) return
+    if (messages.length === 0) return
+    if (messages.length === lastSavedCountRef.current) return
+    if (savingRef.current) return
+
+    const last = messages[messages.length - 1]
+    if (last.role === "assistant" && !last.content.trim()) return
+
+    const newSlice = messages.slice(lastSavedCountRef.current).map((m) => ({
+      role: m.role,
+      content: m.content,
+      metadata: m.images && m.images.length > 0 ? { hasImages: true } : {},
+    }))
+    if (newSlice.length === 0) return
+
+    savingRef.current = true
+    const repoContext = selectedRepo
+      ? { repoOwner: selectedRepo.owner.login, repoName: selectedRepo.name }
+      : undefined
+
+    fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "default", conversationId, messages: newSlice, repoContext }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.conversationId && !conversationId) setConversationId(data.conversationId)
+        lastSavedCountRef.current = messages.length
+      })
+      .catch((err) => console.error("Failed to save conversation:", err))
+      .finally(() => { savingRef.current = false })
+  }, [messages, isLoading, conversationId, selectedRepo])
+
+  // ── History button handlers ──────────────────────────────────────────────
+  const handleNewChat = useCallback(() => {
+    setMessages([])
+    setConversationId(null)
+    lastSavedCountRef.current = 0
+  }, [])
+
+  const handleLoadConversation = useCallback((conv: { id: string; messages: { role: string; content: string; createdAt: string }[] }) => {
+    const loaded: MessageProps[] = conv.messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m, i) => ({
+        id: `${conv.id}-${i}`,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }))
+    setMessages(loaded)
+    setConversationId(conv.id)
+    lastSavedCountRef.current = loaded.length
+  }, [])
 
   // ── Startup: load prefs + docs together so we can auto-enable docs ───────
   useEffect(() => {
@@ -531,6 +592,13 @@ export function ChatInterface() {
               Create PR
             </button>
           )}
+
+          <HistoryButton
+            userId="default"
+            currentConversationId={conversationId}
+            onLoad={handleLoadConversation}
+            onNewChat={handleNewChat}
+          />
 
           <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
         </div>
