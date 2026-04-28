@@ -4,7 +4,7 @@ export function estimateTokens(text: string): number {
 }
 
 export function estimateMessageTokens(messages: { role: string; content: string; images?: string[] }[]): number {
-  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4 + estimateImageTokens(m.images), 0) // +4 per message for role overhead
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4 + estimateImageTokens(m.images), 0)
 }
 
 // Images cost roughly 1000 tokens each in vision models
@@ -13,6 +13,7 @@ export function estimateImageTokens(images?: string[]): number {
 }
 
 const CONTEXT_LIMITS: Record<string, number> = {
+  // Ollama — local models
   "llama3.1:8b": 131072,
   "llama3.1:70b": 131072,
   "llama3:8b": 8192,
@@ -34,9 +35,42 @@ const CONTEXT_LIMITS: Record<string, number> = {
   "qwen2.5-coder:7b": 131072,
   "gemma2:9b": 8192,
   "gemma2:27b": 8192,
+  // Anthropic — Claude models
+  "claude-opus-4-7": 200000,
+  "claude-sonnet-4-6": 200000,
+  "claude-haiku-4-5-20251001": 200000,
+  "claude-opus-4-5": 200000,
+  "claude-sonnet-4-5": 200000,
+  // xAI — Grok models
+  "grok-3": 131072,
+  "grok-3-mini": 131072,
+  "grok-2-vision-1212": 32768,
+  "grok-2": 131072,
 }
 
-const SAFETY_MARGIN = 500 // tokens reserved for response
+// Models that support image input
+export const VISION_MODELS = new Set([
+  "llava:7b",
+  "llava:13b",
+  "llama3.2-vision",
+  "moondream:1.8b",
+  "bakllava",
+  "claude-opus-4-7",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4-5",
+  "claude-sonnet-4-5",
+  "grok-2-vision-1212",
+])
+
+// Best fallback vision model per provider prefix
+export function getBestVisionModel(currentModel: string): string {
+  if (currentModel.startsWith("claude-")) return "claude-sonnet-4-6"
+  if (currentModel.startsWith("grok-")) return "grok-2-vision-1212"
+  return "llava:7b" // Ollama fallback
+}
+
+const SAFETY_MARGIN = 500
 
 export function getContextLimit(model: string): number {
   return CONTEXT_LIMITS[model] || 8192
@@ -49,16 +83,14 @@ export function trimMessagesToFit(
   const limit = getContextLimit(model)
   const maxInputTokens = limit - SAFETY_MARGIN
 
-  let estimated = estimateMessageTokens(messages)
+  const estimated = estimateMessageTokens(messages)
   if (estimated <= maxInputTokens) {
     return { trimmed: messages, wasTrimmed: false, estimatedTokens: estimated }
   }
 
-  // Start trimming from oldest messages (keep system messages + most recent)
   const systemMessages = messages.filter((m) => m.role === "system")
   const nonSystem = messages.filter((m) => m.role !== "system")
 
-  // Keep removing oldest non-system messages until we fit
   while (nonSystem.length > 1 && estimateMessageTokens([...systemMessages, ...nonSystem]) > maxInputTokens) {
     nonSystem.shift()
   }

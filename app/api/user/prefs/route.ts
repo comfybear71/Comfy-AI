@@ -3,28 +3,36 @@ import { getDb } from "@/lib/db"
 import { userPrefs } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 
-// For now, use a default user ID. Will be replaced with Google Auth user ID later.
+// Placeholder until auth is added
 const DEFAULT_USER_ID = "default"
+
+export interface UserSettings {
+  selectedRepo?: string | null       // full_name e.g. "owner/repo"
+  selectedModel?: string | null      // model id
+  activeDocFiles?: string[]          // docs to include as context
+}
 
 export async function GET() {
   try {
-    const [prefs] = await getDb()
+    const db = getDb()
+    const [prefs] = await db
       .select()
       .from(userPrefs)
       .where(eq(userPrefs.userId, DEFAULT_USER_ID))
       .limit(1)
 
     if (!prefs) {
-      // Return defaults
       return NextResponse.json({
         theme: "system",
-        pinnedRepos: [],
+        pinnedRepos: [] as string[],
+        settings: {} as UserSettings,
       })
     }
 
     return NextResponse.json({
       theme: prefs.theme,
       pinnedRepos: prefs.pinnedRepos as string[],
+      settings: (prefs.settings ?? {}) as UserSettings,
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -37,7 +45,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { theme, pinnedRepos } = body
+    const { theme, pinnedRepos, settings } = body
     const db = getDb()
 
     const [existing] = await db
@@ -52,6 +60,9 @@ export async function POST(req: NextRequest) {
         .set({
           theme: theme ?? existing.theme,
           pinnedRepos: pinnedRepos ?? existing.pinnedRepos,
+          settings: settings !== undefined
+            ? { ...(existing.settings as object), ...settings }
+            : existing.settings,
           updatedAt: new Date(),
         })
         .where(eq(userPrefs.userId, DEFAULT_USER_ID))
@@ -60,6 +71,7 @@ export async function POST(req: NextRequest) {
         userId: DEFAULT_USER_ID,
         theme: theme || "system",
         pinnedRepos: pinnedRepos || [],
+        settings: settings || {},
       })
     }
 
