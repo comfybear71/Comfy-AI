@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { trimMessagesToFit } from "@/lib/tokens"
+import {
+  anthropicTools,
+  openaiTools,
+  executeGitHubTool,
+  modelSupportsTools,
+  NO_TOOLS_NOTICE,
+} from "@/lib/github-tools"
 
 type Message = { role: string; content: string; images?: string[] }
 type Provider = "anthropic" | "xai" | "ollama" | "groq" | "ollama-cloud"
@@ -45,140 +52,6 @@ function toAnthropicMessages(messages: Message[]) {
     })
 }
 
-// ── GitHub tools for Anthropic tool use ─────────────────────────────────────
-
-const GITHUB_TOOLS = [
-  {
-    name: "create_branch",
-    description:
-      "Create a new git branch in a GitHub repository. Always use claude/ prefix for branch names (e.g. claude/fix-button).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        owner: { type: "string", description: "Repository owner username" },
-        repo: { type: "string", description: "Repository name" },
-        branch: { type: "string", description: "New branch name, must start with claude/" },
-        from_branch: { type: "string", description: "Base branch to branch from (default: master)" },
-      },
-      required: ["owner", "repo", "branch"],
-    },
-  },
-  {
-    name: "read_file",
-    description: "Read the full content of a file from a GitHub repository branch.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        owner: { type: "string" },
-        repo: { type: "string" },
-        path: { type: "string", description: "File path within the repo (e.g. components/foo.tsx)" },
-        branch: { type: "string", description: "Branch to read from (default: master)" },
-      },
-      required: ["owner", "repo", "path"],
-    },
-  },
-  {
-    name: "update_file",
-    description:
-      "Create or update a file in a GitHub repository with a commit. Use this to make code changes on a branch.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        owner: { type: "string" },
-        repo: { type: "string" },
-        path: { type: "string", description: "File path (e.g. app/page.tsx)" },
-        content: { type: "string", description: "Complete new file content" },
-        message: { type: "string", description: "Git commit message" },
-        branch: { type: "string", description: "Branch to commit to (must already exist)" },
-      },
-      required: ["owner", "repo", "path", "content", "message", "branch"],
-    },
-  },
-]
-
-async function executeGitHubTool(name: string, input: any): Promise<string> {
-  const GH = "https://api.github.com"
-  const token = process.env.GITHUB_TOKEN
-  if (!token) return "Error: GITHUB_TOKEN not configured"
-  const headers: Record<string, string> = {
-    Authorization: `token ${token}`,
-    Accept: "application/vnd.github.v3+json",
-    "Content-Type": "application/json",
-    "User-Agent": "Comfy-AI",
-  }
-  const { owner, repo } = input
-
-  try {
-    if (name === "create_branch") {
-      const base = input.from_branch || "master"
-      const refRes = await fetch(`${GH}/repos/${owner}/${repo}/git/refs/heads/${base}`, { headers })
-      if (!refRes.ok) return `Error: Cannot find base branch \`${base}\``
-      const refData = await refRes.json()
-      const sha = refData.object?.sha
-      const createRes = await fetch(`${GH}/repos/${owner}/${repo}/git/refs`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ ref: `refs/heads/${input.branch}`, sha }),
-      })
-      if (!createRes.ok) {
-        const e = await createRes.json()
-        return `Error: ${e.message}`
-      }
-      return `Branch \`${input.branch}\` created from \`${base}\``
-    }
-
-    if (name === "read_file") {
-      const branch = input.branch || "master"
-      const res = await fetch(
-        `${GH}/repos/${owner}/${repo}/contents/${input.path}?ref=${encodeURIComponent(branch)}`,
-        { headers }
-      )
-      if (!res.ok) return `Error: File not found at \`${input.path}\` on \`${branch}\``
-      const data = await res.json()
-      if (Array.isArray(data)) return `Error: \`${input.path}\` is a directory`
-      const content = Buffer.from(data.content.replace(/\n/g, ""), "base64").toString("utf-8")
-      return `\`${input.path}\` (${branch}):\n\`\`\`\n${content.slice(0, 8000)}\n\`\`\``
-    }
-
-    if (name === "update_file") {
-      let sha: string | undefined
-      try {
-        const getRes = await fetch(
-          `${GH}/repos/${owner}/${repo}/contents/${input.path}?ref=${encodeURIComponent(input.branch)}`,
-          { headers }
-        )
-        if (getRes.ok) {
-          const d = await getRes.json()
-          if (!Array.isArray(d)) sha = d.sha
-        }
-      } catch {}
-
-      const body: any = {
-        message: input.message,
-        content: Buffer.from(input.content).toString("base64"),
-        branch: input.branch,
-      }
-      if (sha) body.sha = sha
-
-      const putRes = await fetch(`${GH}/repos/${owner}/${repo}/contents/${input.path}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(body),
-      })
-      if (!putRes.ok) {
-        const e = await putRes.json()
-        return `Error: ${e.message}`
-      }
-      const putData = await putRes.json()
-      return `Committed \`${input.path}\` to \`${input.branch}\` (${putData.commit?.sha?.slice(0, 7)})`
-    }
-
-    return `Unknown tool: ${name}`
-  } catch (err: any) {
-    return `Error: ${err.message}`
-  }
-}
-
 // ── Anthropic handler with tool loop ────────────────────────────────────────
 
 function handleAnthropicWithTools(messages: Message[], model: string): Response {
@@ -204,7 +77,7 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
               stream: false,
               ...(system ? { system } : {}),
               messages: anthropicMessages,
-              tools: GITHUB_TOOLS,
+              tools: anthropicTools,
             }),
           })
 
@@ -253,7 +126,101 @@ function handleAnthropicWithTools(messages: Message[], model: string): Response 
   })
 }
 
-// ── Streaming providers (OpenAI-compatible + Ollama) ─────────────────────────
+// ── OpenAI-compatible handler with tool loop (Groq / xAI / Ollama Cloud) ────
+
+type OpenAIProvider = "xai" | "groq" | "ollama-cloud"
+
+function getOpenAIEndpoint(provider: OpenAIProvider): { url: string; apiKey: string } {
+  if (provider === "xai") {
+    return { url: "https://api.x.ai/v1/chat/completions", apiKey: process.env.XAI_API_KEY! }
+  }
+  if (provider === "groq") {
+    return { url: "https://api.groq.com/openai/v1/chat/completions", apiKey: process.env.GROQ_API_KEY! }
+  }
+  return { url: "https://ollama.com/v1/chat/completions", apiKey: process.env.OLLAMA_CLOUD_API_KEY! }
+}
+
+function handleOpenAIWithTools(messages: Message[], model: string, provider: OpenAIProvider): Response {
+  const { url, apiKey } = getOpenAIEndpoint(provider)
+  const encoder = new TextEncoder()
+
+  // OpenAI-format messages (text only — these providers don't take images here)
+  let convo: any[] = messages.map((m) => ({ role: m.role, content: m.content }))
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for (let i = 0; i < 6; i++) {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model,
+              stream: false,
+              messages: convo,
+              tools: openaiTools,
+              tool_choice: "auto",
+            }),
+          })
+
+          if (!res.ok) {
+            const errText = await res.text()
+            controller.enqueue(encoder.encode(`**Error**: ${provider} error: ${errText}`))
+            break
+          }
+
+          const data = await res.json()
+          const choice = data.choices?.[0]
+          const msg = choice?.message
+          if (!msg) {
+            controller.enqueue(encoder.encode(`**Error**: empty response from ${provider}`))
+            break
+          }
+
+          if (msg.content) controller.enqueue(encoder.encode(msg.content))
+
+          const toolCalls = msg.tool_calls || []
+          if (toolCalls.length === 0) break
+
+          // Append assistant message with tool_calls so the model sees its own request
+          convo.push({
+            role: "assistant",
+            content: msg.content || "",
+            tool_calls: toolCalls,
+          })
+
+          for (const call of toolCalls) {
+            const name = call.function?.name
+            let input: any = {}
+            try { input = JSON.parse(call.function?.arguments || "{}") } catch {}
+            const label = name?.replace(/_/g, " ") || "tool"
+            controller.enqueue(encoder.encode(`\n\n🔧 **${label}**: \`${JSON.stringify(input).slice(0, 120)}\`\n`))
+            const result = await executeGitHubTool(name, input)
+            controller.enqueue(encoder.encode(`> ${result}\n`))
+            convo.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: result,
+            })
+          }
+        }
+      } catch (err: any) {
+        controller.enqueue(encoder.encode(`\n\n**Error**: ${err.message}`))
+      }
+      controller.close()
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  })
+}
+
+// ── Streaming providers (no tools — fallback path) ──────────────────────────
 
 async function callProvider(messages: Message[], model: string): Promise<Response> {
   const provider = detectProvider(model)
@@ -354,23 +321,35 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, model = "llama3.1:8b", stream = true } = await req.json()
 
-    const systemPrompt = process.env.SYSTEM_PROMPT
+    const supportsTools = modelSupportsTools(model)
+    const baseSystem = (process.env.SYSTEM_PROMPT || "").trim()
     const modelLine = `\nCURRENT MODEL: You are powered by ${model}. When asked what model you are, say exactly: "I'm Comfy AI, currently powered by ${model}. You can change models using the picker in the header."`
-    const messagesWithSystem = systemPrompt?.trim()
-      ? [{ role: "system", content: systemPrompt.trim() + modelLine }, ...messages]
+    const noToolsLine = supportsTools ? "" : `\n${NO_TOOLS_NOTICE}`
+    const fullSystem = `${baseSystem}${modelLine}${noToolsLine}`.trim()
+
+    const messagesWithSystem = fullSystem
+      ? [{ role: "system", content: fullSystem }, ...messages]
       : messages
 
     const provider = detectProvider(model)
     const { trimmed } = trimMessagesToFit(messagesWithSystem, model)
 
-    // Anthropic: use tool loop handler
+    // Anthropic: tool loop (always — all Claude models in TOOL_CAPABLE_MODELS)
     if (provider === "anthropic") {
       const apiKey = process.env.ANTHROPIC_API_KEY
       if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 })
       return handleAnthropicWithTools(trimmed, model)
     }
 
-    // All other providers: standard streaming
+    // Groq / xAI / Ollama Cloud: tool loop ONLY for tool-capable models
+    if ((provider === "xai" || provider === "groq" || provider === "ollama-cloud") && supportsTools) {
+      const keyVar =
+        provider === "xai" ? "XAI_API_KEY" : provider === "groq" ? "GROQ_API_KEY" : "OLLAMA_CLOUD_API_KEY"
+      if (!process.env[keyVar]) return NextResponse.json({ error: `${keyVar} not configured` }, { status: 500 })
+      return handleOpenAIWithTools(trimmed, model, provider)
+    }
+
+    // All non-tool-capable paths: standard streaming, no tools
     const response = await callProvider(trimmed, model)
 
     if (!response.ok) {
