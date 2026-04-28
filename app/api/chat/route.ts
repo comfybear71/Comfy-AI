@@ -277,7 +277,7 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
   return fetch(`${apiUrl}/api/chat`, {
     method: "POST",
     headers,
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(55000),
     body: JSON.stringify({
       model,
       messages: messages.map((m) => ({ role: m.role, content: m.content, ...(m.images ? { images: m.images } : {}) })),
