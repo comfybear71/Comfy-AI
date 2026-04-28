@@ -539,16 +539,21 @@ export function ChatInterface() {
             <Menu className="w-5 h-5 text-gray-400" />
           </button>
 
-          {/* Logo — blue dot on icon when docs active (mobile), full badge on desktop */}
+          {/* Logo — tappable on mobile to open docs panel; blue dot when docs active */}
           <div className="flex items-center gap-1.5 shrink-0">
-            <div className="relative">
+            <button
+              onClick={() => setDocsPanelOpen((p) => !p)}
+              className="relative p-0 sm:cursor-default sm:pointer-events-none"
+              title={activeDocFiles.length > 0 ? `${activeDocFiles.length} doc(s) active — tap to manage` : "Tap to manage docs context"}
+              aria-label="Toggle docs panel"
+            >
               <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               {activeDocFiles.length > 0 && (
                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-400 ring-1 ring-[#161b22] sm:hidden" />
               )}
-            </div>
+            </button>
             <span className="font-semibold text-sm text-gray-100 whitespace-nowrap hidden sm:inline">Comfy AI</span>
           </div>
 
@@ -601,6 +606,7 @@ export function ChatInterface() {
             currentConversationId={conversationId}
             onLoad={handleLoadConversation}
             onNewChat={handleNewChat}
+            selectedRepo={selectedRepo}
           />
 
           <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
