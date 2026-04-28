@@ -7,6 +7,13 @@ import rehypeHighlight from "rehype-highlight"
 import { Copy, Check, User, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+function extractText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join("")
+  if (React.isValidElement(node)) return extractText((node.props as any).children)
+  return ""
+}
+
 export interface MessageProps {
   id: string
   role: "user" | "assistant"
@@ -18,7 +25,7 @@ export interface MessageProps {
 
 function CodeBlock({ children, className, ...props }: any) {
   const [copied, setCopied] = useState(false)
-  const code = String(children).replace(/\n$/, "")
+  const code = extractText(children).replace(/\n$/, "")
   const language = className?.replace("language-", "") || "text"
 
   const handleCopy = async () => {
