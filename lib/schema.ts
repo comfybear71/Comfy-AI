@@ -67,6 +67,24 @@ export const webhookEvents = pgTable("webhook_events", {
   createdAt: timestamp("created_at").defaultNow(),
 })
 
+export const councilLessons = pgTable(
+  "council_lessons",
+  {
+    id: serial("id").primaryKey(),
+    taskHash: varchar("task_hash", { length: 64 }).notNull(),
+    task: text("task").notNull(),
+    lesson: text("lesson").notNull(),
+    avgScore: varchar("avg_score", { length: 10 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    hashIdx: index("council_lessons_hash_idx").on(t.taskHash),
+  })
+)
+
+export type CouncilLesson = typeof councilLessons.$inferSelect
+export type NewCouncilLesson = typeof councilLessons.$inferInsert
+
 export type UserPref = typeof userPrefs.$inferSelect
 export type NewUserPref = typeof userPrefs.$inferInsert
 export type WebhookEvent = typeof webhookEvents.$inferSelect
