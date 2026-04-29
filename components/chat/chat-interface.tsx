@@ -86,6 +86,9 @@ export function ChatInterface() {
   const [docsContext, setDocsContext] = useState("")
   const [docsPanelOpen, setDocsPanelOpen] = useState(false)
 
+  // Follow-up suggestion chips
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({})
+
   // Council — auto-triggers after every AI response
   const [councilOpen, setCouncilOpen] = useState(false)
   const [councilTask, setCouncilTask] = useState("")
@@ -364,6 +367,8 @@ export function ChatInterface() {
         }
       }
 
+      setSuggestions({})
+
       const userMsg: MessageProps = {
         id: Date.now().toString(),
         role: "user",
@@ -425,6 +430,22 @@ export function ChatInterface() {
           if (done) break
           full += decoder.decode(value, { stream: true })
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
+        }
+
+        // Generate follow-up suggestion chips (non-blocking, best-effort)
+        if (full) {
+          fetch("/api/suggestions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ task: content.slice(0, 300), response: full.slice(0, 600) }),
+          })
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+              if (Array.isArray(data?.suggestions) && data.suggestions.length > 0) {
+                setSuggestions({ [assistantId]: data.suggestions })
+              }
+            })
+            .catch(() => {})
         }
 
         // Auto-trigger Agent Council for expert/heavy modes only
@@ -714,7 +735,12 @@ export function ChatInterface() {
                 </div>
               </div>
             ) : (
-              <MessageList messages={messages} isLoading={isLoading} />
+              <MessageList
+                messages={messages}
+                isLoading={isLoading}
+                suggestions={suggestions}
+                onSuggest={handleSend}
+              />
             )}
             <ChatInput
               onSend={handleSend}
