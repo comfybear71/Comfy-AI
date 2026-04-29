@@ -23,6 +23,39 @@ export interface MessageProps {
   images?: string[]
   timestamp?: string
   isStreaming?: boolean
+  modelName?: string
+}
+
+function shortenModelName(modelId: string): string {
+  // Extract the display name from model ID
+  const nameMap: Record<string, string> = {
+    "llama3.1:8b": "Llama 3.1 8B",
+    "llama3.2:3b": "Llama 3.2 3B",
+    "codellama:7b": "CodeLlama 7B",
+    "mistral:7b": "Mistral 7B",
+    "deepseek-coder-v2": "DeepSeek Coder V2",
+    "qwen2.5-coder:7b": "Qwen 2.5 Coder",
+    "phi3:mini": "Phi-3 Mini",
+    "qwen3:8b": "Qwen 3 8B",
+    "llava:7b": "LLaVA 7B",
+    "llama3.2-vision": "Llama 3.2 Vision",
+    "moondream:1.8b": "Moondream 1.8B",
+    "claude-opus-4-7": "Claude Opus 4",
+    "claude-sonnet-4-6": "Claude Sonnet 4",
+    "claude-haiku-4-5-20251001": "Haiku 4.5",
+    "grok-3": "Grok 3",
+    "grok-3-mini": "Grok 3 Mini",
+    "llama-3.1-8b-instant": "Llama 3.1 8B",
+    "llama-3.3-70b-versatile": "Llama 3.3 70B",
+    "mixtral-8x7b-32768": "Mixtral 8x7B",
+    "kimi-k2:1t-cloud": "Kimi K2",
+    "kimi-k2-thinking": "Kimi K2 Thinking",
+    "deepseek-v3.1:671b-cloud": "DeepSeek V3.1",
+    "qwen3-coder:480b-cloud": "Qwen 3 Coder 480B",
+    "gpt-oss:20b-cloud": "GPT OSS 20B",
+    "gpt-oss:120b-cloud": "GPT OSS 120B",
+  }
+  return nameMap[modelId] || modelId
 }
 
 function CodeBlock({ children, className, ...props }: any) {
@@ -66,19 +99,75 @@ function CodeBlock({ children, className, ...props }: any) {
   )
 }
 
+function Table({ children }: any) {
+  const [copiedCell, setCopiedCell] = useState<string | null>(null)
+
+  const handleCopyCell = async (text: string) => {
+    await navigator.clipboard.writeText(text)
+    setCopiedCell(text)
+    setTimeout(() => setCopiedCell(null), 2000)
+  }
+
+  const tableBody = children?.find((child: any) => child?.type === "tbody")
+  const tableHead = children?.find((child: any) => child?.type === "thead")
+
+  if (!tableBody) {
+    return (
+      <div className="my-4 overflow-x-auto border border-gray-700 rounded-lg">
+        <table className="w-full text-sm">{children}</table>
+      </div>
+    )
+  }
+
+  const rows = tableBody.props?.children || []
+
+  return (
+    <div className="my-4 space-y-3 !m-0">
+      <div className="hidden sm:block border border-gray-700 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          {tableHead && <thead className="bg-[#0d1117] border-b border-gray-700">{tableHead.props.children}</thead>}
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
+      <div className="sm:hidden space-y-3">
+        {rows.map((row: any, idx: number) => {
+          const cells = row.props?.children || []
+          if (cells.length < 2) return null
+          const fieldText = extractText(cells[0])
+          const valueText = extractText(cells[1])
+          return (
+            <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0d1117]">
+              <div className="text-xs font-bold text-emerald-400 mb-2 uppercase">{fieldText}</div>
+              <div className="text-sm text-gray-200 break-words font-mono mb-2">{valueText}</div>
+              {valueText && (
+                <button
+                  onClick={() => handleCopyCell(valueText)}
+                  className="w-full text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 py-2 border border-gray-700 rounded-lg hover:border-emerald-400/50"
+                >
+                  {copiedCell === valueText ? <><Check className="w-3 h-3" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 const MemoMarkdown = memo(function MarkdownContent({ content }: { content: string }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
-      components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock }}
+      components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock, table: Table }}
     >
       {content}
     </ReactMarkdown>
   )
 })
 
-export function Message({ role, content, images, timestamp, isStreaming }: MessageProps) {
+export function Message({ role, content, images, timestamp, isStreaming, modelName }: MessageProps) {
   const isUser = role === "user"
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
@@ -100,16 +189,23 @@ export function Message({ role, content, images, timestamp, isStreaming }: Messa
             : "bg-[#161b22] border border-gray-700 text-gray-100 rounded-bl-md"
         )}
       >
-        <div className="flex items-center gap-2 mb-2">
-          <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", isUser ? "bg-emerald-700" : "bg-emerald-500/20")}>
-            {isUser ? <User className="w-3 h-3 text-white" /> : <Bot className="w-3 h-3 text-emerald-400" />}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <div className={cn("w-5 h-5 rounded-full flex items-center justify-center shrink-0", isUser ? "bg-emerald-700" : "bg-emerald-500/20")}>
+              {isUser ? <User className="w-3 h-3 text-white" /> : <Bot className="w-3 h-3 text-emerald-400" />}
+            </div>
+            <span className={cn("font-semibold text-xs", isUser ? "text-emerald-100" : "text-emerald-400")}>
+              {isUser ? "You" : "Comfy AI"}
+            </span>
           </div>
-          <span className={cn("font-semibold text-xs", isUser ? "text-emerald-100" : "text-emerald-400")}>
-            {isUser ? "You" : "Comfy AI"}
-          </span>
-          {timestamp && (
-            <span className={cn("text-[10px]", isUser ? "text-emerald-200/60" : "text-gray-500")}>{timestamp}</span>
-          )}
+          <div className="flex items-center gap-2 text-[10px]">
+            {!isUser && modelName && (
+              <span className="text-gray-400">{shortenModelName(modelName)}</span>
+            )}
+            {timestamp && (
+              <span className={cn(isUser ? "text-emerald-200/60" : "text-gray-500")}>{timestamp}</span>
+            )}
+          </div>
         </div>
 
         {images && images.length > 0 && (

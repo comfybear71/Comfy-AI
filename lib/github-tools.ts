@@ -39,6 +39,11 @@ export function modelSupportsTools(model: string): boolean {
   return TOOL_CAPABLE_MODELS.has(model)
 }
 
+// Maximum characters returned by read_file in a single call.
+// Bumped from 8 000 → 50 000 to fit ~1 200 lines of typical TS/TSX code,
+// covering ~95 % of real files. For larger files use start_line / end_line.
+const READ_FILE_MAX_CHARS = 50_000
+
 // ── Anthropic-flavoured tool schema ──────────────────────────────────────────
 
 export const anthropicTools = [
@@ -59,7 +64,9 @@ export const anthropicTools = [
   },
   {
     name: "read_file",
-    description: "Read the full content of a file from a GitHub repository branch.",
+    description:
+      "Read the content of a file from a GitHub repository branch. Returns up to 50,000 characters. " +
+      "For larger files, use start_line and end_line to read a specific range.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -67,6 +74,8 @@ export const anthropicTools = [
         repo: { type: "string" },
         path: { type: "string", description: "File path within the repo (e.g. components/foo.tsx)" },
         branch: { type: "string", description: "Branch to read from (default: master)" },
+        start_line: { type: "number", description: "Optional: 1-indexed line to start reading from" },
+        end_line: { type: "number", description: "Optional: 1-indexed line to stop at (inclusive)" },
       },
       required: ["owner", "repo", "path"],
     },
@@ -143,8 +152,28 @@ export async function executeGitHubTool(name: string, input: any): Promise<strin
       if (!res.ok) return `Error: File not found at \`${input.path}\` on \`${branch}\``
       const data = await res.json()
       if (Array.isArray(data)) return `Error: \`${input.path}\` is a directory`
-      const content = Buffer.from(data.content.replace(/\n/g, ""), "base64").toString("utf-8")
-      return `\`${input.path}\` (${branch}):\n\`\`\`\n${content.slice(0, 8000)}\n\`\`\``
+      const fullContent = Buffer.from(data.content.replace(/\n/g, ""), "base64").toString("utf-8")
+
+      // Optional line-range slicing
+      const { start_line, end_line } = input
+      let content = fullContent
+      let header = `\`${input.path}\` (${branch})`
+      if (typeof start_line === "number" || typeof end_line === "number") {
+        const lines = fullContent.split("\n")
+        const start = Math.max(1, start_line ?? 1)
+        const end = Math.min(lines.length, end_line ?? lines.length)
+        content = lines.slice(start - 1, end).join("\n")
+        header = `\`${input.path}\` (${branch}, lines ${start}-${end} of ${lines.length})`
+      }
+
+      // Truncate if still too large, with a clear notice
+      const truncated = content.length > READ_FILE_MAX_CHARS
+      const shown = truncated ? content.slice(0, READ_FILE_MAX_CHARS) : content
+      const notice = truncated
+        ? `\n\n…[truncated at ${READ_FILE_MAX_CHARS.toLocaleString()} chars — use start_line/end_line to read more]`
+        : ""
+
+      return `${header}:\n\`\`\`\n${shown}${notice}\n\`\`\``
     }
 
     if (name === "update_file") {
