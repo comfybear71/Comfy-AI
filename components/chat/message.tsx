@@ -162,7 +162,23 @@ const MemoMarkdown = memo(function MarkdownContent({ content }: { content: strin
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeHighlight]}
-      components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock, table: Table }}
+      components={{
+        pre: ({ children }: any) => <>{children}</>,
+        code: CodeBlock,
+        table: Table,
+        h1: ({ children }: any) => <h1 className="text-2xl font-bold text-white mt-5 mb-3">{children}</h1>,
+        h2: ({ children }: any) => <h2 className="text-xl font-bold text-white mt-4 mb-2">{children}</h2>,
+        h3: ({ children }: any) => <h3 className="text-lg font-semibold text-gray-100 mt-3 mb-2">{children}</h3>,
+        h4: ({ children }: any) => <h4 className="text-base font-semibold text-gray-200 mt-2 mb-1">{children}</h4>,
+        p: ({ children }: any) => <p className="text-sm sm:text-base text-gray-100 leading-relaxed mb-3">{children}</p>,
+        ul: ({ children }: any) => <ul className="list-disc list-inside space-y-1.5 text-sm sm:text-base text-gray-100 mb-3 ml-1">{children}</ul>,
+        ol: ({ children }: any) => <ol className="list-decimal list-inside space-y-1.5 text-sm sm:text-base text-gray-100 mb-3 ml-1">{children}</ol>,
+        li: ({ children }: any) => <li className="text-gray-100">{children}</li>,
+        blockquote: ({ children }: any) => <blockquote className="border-l-4 border-emerald-500 pl-4 py-1 my-3 text-gray-300 italic text-sm sm:text-base">{children}</blockquote>,
+        strong: ({ children }: any) => <strong className="font-bold text-white">{children}</strong>,
+        em: ({ children }: any) => <em className="italic text-gray-200">{children}</em>,
+        a: ({ href, children }: any) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline transition-colors">{children}</a>,
+      }}
     >
       {content}
     </ReactMarkdown>
@@ -234,7 +250,7 @@ export function Message({ role, content, images, timestamp, isStreaming, modelNa
             <div
               ref={contentRef}
               className={cn(
-                "relative prose prose-sm max-w-none prose-invert overflow-hidden transition-[max-height] duration-300",
+                "relative overflow-hidden transition-[max-height] duration-300",
                 !expanded && overflows ? `max-h-[${TRUNCATE_HEIGHT}px]` : "max-h-none"
               )}
               style={!expanded && overflows ? { maxHeight: TRUNCATE_HEIGHT } : undefined}
