@@ -1,132 +1,154 @@
 /**
  * Service for fetching and validating LLM benchmark data
- * Supports both local JSON and remote API sources
+ * Enhanced with error handling and logging
  */
 
-/**
- * Validates benchmark data structure
- * @param {Array} data - Array of model objects to validate
- * @returns {boolean} - True if data is valid
- */
-const validateBenchmarkData = (data) => {
-  if (!Array.isArray(data)) {
-    console.error('Benchmark data must be an array');
-    return false;
-  }
-
-  const requiredFields = ['name', 'vendor', 'reasoning', 'coding', 'language_understanding', 'speed', 'cost'];
-  const numericFields = ['reasoning', 'coding', 'language_understanding', 'vision', 'speed', 'context'];
-  
-  for (const model of data) {
-    // Check required fields
-    for (const field of requiredFields) {
-      if (!(field in model)) {
-        console.error(`Missing required field: ${field} in model ${model.name}`);
-        return false;
-      }
-    }
-
-    // Validate numeric fields
-    for (const field of numericFields) {
-      if (field in model && (typeof model[field] !== 'number' || model[field] < 0)) {
-        console.error(`Invalid ${field} value for model ${model.name}: ${model[field]}`);
-        return false;
-      }
-    }
-
-    // Validate cost format
-    if (!/^\$+$/.test(model.cost)) {
-      console.error(`Invalid cost format for model ${model.name}: ${model.cost}`);
-      return false;
-    }
-  }
-
-  return true;
-};
+import { fetchJson, withRetry } from '../utils/api';
+import { logError, logWarning } from '../utils/logger';
 
 /**
- * Fetches benchmark data from configured source
- * @param {string} source - Data source ('local' or API URL)
- * @returns {Promise<Array>} - Array of validated model benchmarks
+ * Fetches LLM benchmark data from configured source
+ * @param {string} source - API endpoint URL or 'local' for local JSON
+ * @returns {Promise<Array>} Array of benchmark data objects
  */
 export const fetchBenchmarkData = async (source = 'local') => {
+  const context = {
+    component: 'benchmarkService',
+    metadata: { source }
+  };
+  
   try {
     let data;
     
-    if (source === 'local') {
-      // Fetch from local JSON file
+    if (source.startsWith('http')) {
+      // Fetch from API endpoint with retry logic
+      data = await withRetry(
+        async () => {
+          const response = await fetchJson(source, {}, context);
+          
+          if (!Array.isArray(response)) {
+            throw new Error('API returned non-array response');
+          }
+          
+          return response;
+        },
+        { 
+          maxRetries: 2,
+          shouldRetry: (error) => error.status >= 500 || error.name === 'TypeError'
+        }
+      );
+      
+    } else if (source === 'local') {
+      // Import local JSON data
       try {
-        const response = await fetch('/api/benchmarks');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const localData = await import('../data/llm_benchmarks.json');
+        data = localData.default || localData;
+        
+        if (!Array.isArray(data)) {
+          throw new Error('Local JSON data is not an array');
         }
-        data = await response.json();
-      } catch (localError) {
-        console.warn('Local benchmark API unavailable, falling back to direct import');
-        // Fallback: try to import directly (for development)
-        try {
-          const localData = await import('../data/llm_benchmarks.json');
-          data = localData.default || localData;
-        } catch (importError) {
-          throw new Error('Failed to load local benchmark data');
-        }
+        
+      } catch (importError) {
+        logError(importError, {
+          ...context,
+          metadata: { ...context.metadata, type: 'local_import' }
+        });
+        throw new Error('Failed to load local benchmark data');
       }
+      
     } else {
-      // Fetch from external API
-      const response = await fetch(source);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      data = await response.json();
+      throw new Error(`Invalid data source: ${source}`);
     }
-
-    // Validate the data structure
-    if (!validateBenchmarkData(data)) {
-      throw new Error('Invalid benchmark data structure');
-    }
-
-    // Sort by reasoning score (highest first) as default
-    return data.sort((a, b) => b.reasoning - a.reasoning);
-
+    
+    // Validate and normalize data structure
+    const validatedData = validateAndNormalizeBenchmarkData(data, context);
+    
+    return validatedData;
+    
   } catch (error) {
-    console.error('Failed to fetch benchmark data:', error);
-    throw new Error(`Benchmark data unavailable: ${error.message}`);
+    // If API failed, try fallback to local data
+    if (source !== 'local') {
+      logWarning(`API source failed, falling back to local data: ${error.message}`, context);
+      
+      try {
+        return await fetchBenchmarkData('local');
+      } catch (fallbackError) {
+        logError(fallbackError, {
+          ...context,
+          metadata: { ...context.metadata, fallback: true }
+        });
+      }
+    }
+    
+    // Re-throw enriched error
+    error.message = `Failed to load benchmark data: ${error.message}`;
+    throw error;
   }
 };
 
 /**
- * Gets performance rating label based on score
- * @param {number} score - Performance score (0-100)
- * @returns {string} - Performance rating label
+ * Validates and normalizes benchmark data structure
+ * @param {Array} data - Raw benchmark data
+ * @param {Object} context - Logging context
+ * @returns {Array} Validated and normalized data
  */
-export const getPerformanceRating = (score) => {
-  if (score >= 90) return 'Exceptional';
-  if (score >= 80) return 'Excellent';
-  if (score >= 70) return 'Good';
-  if (score >= 60) return 'Fair';
-  return 'Basic';
+const validateAndNormalizeBenchmarkData = (data, context) => {
+  if (!Array.isArray(data)) {
+    throw new Error('Benchmark data must be an array');
+  }
+  
+  const requiredFields = ['name', 'reasoning', 'coding', 'language_understanding', 'speed', 'cost'];
+  
+  return data.map((model, index) => {
+    // Check for missing required fields
+    const missingFields = requiredFields.filter(field => !(field in model));
+    
+    if (missingFields.length > 0) {
+      logWarning(`Model ${index} missing fields: ${missingFields.join(', ')}`, {
+        ...context,
+        metadata: { 
+          ...context.metadata, 
+          modelName: model.name,
+          missingFields 
+        }
+      });
+    }
+    
+    // Normalize and validate field types
+    return {
+      name: String(model.name || 'Unknown Model'),
+      reasoning: clampScore(Number(model.reasoning) || 0),
+      coding: clampScore(Number(model.coding) || 0),
+      language_understanding: clampScore(Number(model.language_understanding) || 0),
+      speed: clampScore(Number(model.speed) || 0, 1, 5),
+      cost: clampScore(Number(model.cost) || 0, 1, 5),
+      provider: String(model.provider || 'Unknown'),
+      context_window: Number(model.context_window) || 0,
+      source: String(model.source || 'Unknown'),
+      vision: Boolean(model.vision),
+      open_source: Boolean(model.open_source),
+      coding_specialized: Boolean(model.coding_specialized),
+      // Keep original data for reference
+      _raw: model
+    };
+  });
 };
 
 /**
- * Gets speed rating label based on speed score
- * @param {number} speed - Speed score (1-10, higher = faster)
- * @returns {string} - Speed rating label
+ * Clamps scores to valid ranges
+ * @param {number} value - Score value
+ * @param {number} min - Minimum value (default: 0)
+ * @param {number} max - Maximum value (default: 100)
+ * @returns {number} Clamped value
  */
-export const getSpeedRating = (speed) => {
-  if (speed >= 9) return 'Very Fast';
-  if (speed >= 7) return 'Fast';
-  if (speed >= 5) return 'Medium';
-  if (speed >= 3) return 'Slow';
-  return 'Very Slow';
+const clampScore = (value, min = 0, max = 100) => {
+  return Math.max(min, Math.min(max, value));
 };
 
 /**
- * Formats context length for display
- * @param {number} context - Context length in tokens
- * @returns {string} - Formatted context string
+ * Get available data sources
  */
-export const formatContext = (context) => {
-  if (context >= 1000000) return `${(context / 1000000).toFixed(1)}M`;
-  if (context >= 1000) return `${(context / 1000).toFixed(0)}K`;
-  return context.toString();
-};
+export const getAvailableSources = () => ({
+  local: 'Local JSON Data',
+  api: 'API Endpoint (configurable)'
+});
