@@ -83,7 +83,7 @@ export function ChatInterface() {
   const [docsContext, setDocsContext] = useState("")
   const [docsPanelOpen, setDocsPanelOpen] = useState(false)
 
-  // Council
+  // Council — auto-triggers after every AI response
   const [councilOpen, setCouncilOpen] = useState(false)
   const [councilTask, setCouncilTask] = useState("")
 
@@ -414,6 +414,12 @@ export function ChatInterface() {
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
         }
 
+        // Auto-trigger Agent Council in the background after every AI response
+        if (full && enrichedContent) {
+          setCouncilTask(enrichedContent)
+          setCouncilOpen(true)
+        }
+
         // Save conversation — done here (not in a useEffect) so selectedRepo and
         // messages are captured from the exact moment the user hit Send, avoiding
         // race conditions when the user switches repos before save fires.
@@ -700,7 +706,7 @@ export function ChatInterface() {
             <ChatInput
               onSend={handleSend}
               onCommand={handleCommand}
-              onCouncil={(task) => { setCouncilTask(task); setCouncilOpen(true) }}
+              onCouncil={(task) => { setCouncilTask(task); setCouncilOpen(true) }} // @council override
               isLoading={isLoading}
             />
           </div>
@@ -903,17 +909,6 @@ export function ChatInterface() {
             setActivePR({ owner: selectedRepo.owner.login, repo: selectedRepo.name, number, url })
           }}
         />
-      )}
-
-      {/* Council FAB — visible when panel is closed */}
-      {!councilOpen && (
-        <button
-          onClick={() => setCouncilOpen(true)}
-          title="Agent Council (@council in chat)"
-          className="fixed bottom-24 right-4 z-50 w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 shadow-lg flex items-center justify-center transition-all hover:scale-105"
-        >
-          <Users className="w-4.5 h-4.5 text-white" />
-        </button>
       )}
 
       <CouncilPanel

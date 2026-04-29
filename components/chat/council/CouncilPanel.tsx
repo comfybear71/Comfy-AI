@@ -34,9 +34,11 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
   const [avgScore, setAvgScore] = useState<number | null>(null)
   const [plan, setPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true) // starts compact; expands when running
   const abortRef = useRef<AbortController | null>(null)
   const runningTaskRef = useRef<string>("")
+  // Stable ref so the auto-start effect never has runCouncil as a dep
+  const runCouncilRef = useRef<(t: string) => Promise<void>>(() => Promise.resolve())
 
   const setAgentStatus = useCallback((agentId: AgentId, patch: Partial<AgentState>) => {
     setAgentStates((prev) => ({ ...prev, [agentId]: { ...prev[agentId], ...patch } }))
@@ -47,12 +49,16 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
   }, [])
 
   const runCouncil = useCallback(async (taskText: string) => {
+    // Guard: never send empty task
+    if (!taskText?.trim()) return
+
     if (abortRef.current) abortRef.current.abort()
     const abort = new AbortController()
     abortRef.current = abort
     runningTaskRef.current = taskText
 
     setRunning(true)
+    setCollapsed(false) // auto-expand while agents are working
     setAvgScore(null)
     setPlan(null)
     setError(null)
@@ -68,7 +74,8 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
       })
 
       if (!res.ok || !res.body) {
-        setError(`Council API error: HTTP ${res.status}`)
+        const msg = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+        setError(msg.error || `HTTP ${res.status}`)
         return
       }
 
@@ -116,23 +123,23 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
     }
   }, [selectedModel, agentModels, setAgentStatus, addFeed])
 
-  // Start council when task changes and panel is open
+  // Keep ref in sync with the latest runCouncil (avoids stale closure in auto-start)
+  useEffect(() => { runCouncilRef.current = runCouncil }, [runCouncil])
+
+  // Auto-start: fires only when `open` or `task` changes — NOT when runCouncil changes
+  // (agentModels updates shouldn't re-trigger the council)
   useEffect(() => {
     if (open && task && task !== runningTaskRef.current) {
-      runCouncil(task)
+      runCouncilRef.current(task)
     }
-  }, [open, task, runCouncil])
+  }, [open, task]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync new selectedModel → agents that are still on the session default
+  // Sync agentModels when selectedModel changes (only agents still on the session default)
   useEffect(() => {
     setAgentModels((prev) => {
-      const next = { ...prev }
-      for (const a of AGENTS) {
-        if (next[a.id] === prev[a.id] && !Object.values(prev).find((m) => m !== selectedModel)) {
-          next[a.id] = selectedModel
-        }
-      }
-      return next
+      const allOnSession = AGENTS.every((a) => prev[a.id] === Object.values(prev)[0])
+      if (!allOnSession) return prev
+      return Object.fromEntries(AGENTS.map((a) => [a.id, selectedModel])) as AgentModels
     })
   }, [selectedModel])
 
@@ -146,7 +153,7 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
 
   return (
     <>
-      {/* Backdrop — mobile only */}
+      {/* Backdrop — tap outside to close on mobile */}
       <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" onClick={onClose} />
 
       {/* Panel */}
@@ -163,9 +170,7 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
 
           {running && <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin shrink-0" />}
           {!running && avgScore !== null && (
-            <span className={cn("text-xs font-bold shrink-0", scoreColor)}>
-              avg {avgScore}/10
-            </span>
+            <span className={cn("text-xs font-bold shrink-0", scoreColor)}>avg {avgScore}/10</span>
           )}
 
           <button onClick={() => setCollapsed(!collapsed)} className="p-0.5 hover:bg-gray-700 rounded transition-colors">
@@ -178,81 +183,90 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
 
         {!collapsed && (
           <>
-            {/* Task */}
-            {task && (
+            {/* Task display */}
+            {task ? (
               <div className="px-3 py-2 border-b border-gray-700/50 shrink-0">
                 <p className="text-[11px] text-gray-500 truncate">
                   <span className="text-emerald-400 font-medium">@council</span> {task}
                 </p>
               </div>
-            )}
-
-            {/* Agent row */}
-            <div className="flex items-start justify-around px-3 py-3 border-b border-gray-700/50 shrink-0">
-              {AGENTS.map((def) => (
-                <AgentCard
-                  key={def.id}
-                  def={def}
-                  status={agentStates[def.id].status}
-                  score={agentStates[def.id].score}
-                  selectedModel={selectedModel}
-                  agentModel={agentModels[def.id]}
-                  onModelChange={(m) => setAgentModels((prev) => ({ ...prev, [def.id]: m }))}
-                />
-              ))}
-            </div>
-
-            {/* Discussion feed */}
-            <DiscussionFeed entries={feed} className="flex-1 min-h-0" />
-
-            {/* Error */}
-            {error && (
-              <div className="mx-3 mb-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-xs text-red-400">{error}</p>
+            ) : (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <p className="text-xs text-gray-500 text-center leading-relaxed">
+                  Type <span className="text-emerald-400 font-mono">@council &lt;your task&gt;</span><br />
+                  in the chat to start a council session.
+                </p>
               </div>
             )}
 
-            {/* Footer: approval buttons or re-run */}
-            <div className="px-3 py-2.5 border-t border-gray-700/50 shrink-0 flex items-center gap-2">
-              {plan && !running && (
-                <>
-                  <button
-                    onClick={() => onApprove(plan)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    Go ahead
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-semibold rounded-xl transition-colors"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Reject
-                  </button>
-                </>
-              )}
-              {!running && (
-                <button
-                  onClick={() => runCouncil(task)}
-                  title="Re-run council"
-                  className={cn(
-                    "p-2 hover:bg-gray-700 rounded-xl transition-colors shrink-0",
-                    plan ? "" : "ml-auto"
+            {/* Body — only show if there's an active task */}
+            {task && (
+              <>
+                {/* Agent row */}
+                <div className="flex items-start justify-around px-3 py-3 border-b border-gray-700/50 shrink-0">
+                  {AGENTS.map((def) => (
+                    <AgentCard
+                      key={def.id}
+                      def={def}
+                      status={agentStates[def.id].status}
+                      score={agentStates[def.id].score}
+                      selectedModel={selectedModel}
+                      agentModel={agentModels[def.id]}
+                      onModelChange={(m) => setAgentModels((prev) => ({ ...prev, [def.id]: m }))}
+                    />
+                  ))}
+                </div>
+
+                {/* Discussion feed */}
+                <DiscussionFeed entries={feed} className="flex-1 min-h-0" />
+
+                {/* Error */}
+                {error && (
+                  <div className="mx-3 mb-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-xs text-red-400">{error}</p>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div className="px-3 py-2.5 border-t border-gray-700/50 shrink-0 flex items-center gap-2">
+                  {plan && !running && (
+                    <>
+                      <button
+                        onClick={() => onApprove(plan)}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Go ahead
+                      </button>
+                      <button
+                        onClick={onClose}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-semibold rounded-xl transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Reject
+                      </button>
+                    </>
                   )}
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
-                </button>
-              )}
-              {running && (
-                <button
-                  onClick={() => abortRef.current?.abort()}
-                  className="ml-auto flex items-center gap-1 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                >
-                  Stop
-                </button>
-              )}
-            </div>
+                  {!running && task && (
+                    <button
+                      onClick={() => runCouncil(task)}
+                      title="Re-run council"
+                      className={cn("p-2 hover:bg-gray-700 rounded-xl transition-colors shrink-0", plan ? "" : "ml-auto")}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
+                    </button>
+                  )}
+                  {running && (
+                    <button
+                      onClick={() => abortRef.current?.abort()}
+                      className="ml-auto flex items-center gap-1 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      Stop
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
