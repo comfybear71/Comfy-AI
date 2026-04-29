@@ -86,6 +86,7 @@ export function ChatInterface() {
   // Council — auto-triggers after every AI response
   const [councilOpen, setCouncilOpen] = useState(false)
   const [councilTask, setCouncilTask] = useState("")
+  const skipCouncilRef = useRef(false) // set true when council itself sends a follow-up
 
   // ── Escape to stop generation ─────────────────────────────────────────────
   useEffect(() => {
@@ -414,11 +415,13 @@ export function ChatInterface() {
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
         }
 
-        // Auto-trigger Agent Council in the background after every AI response
-        if (full && enrichedContent) {
+        // Auto-trigger Agent Council after every AI response, unless this
+        // message was itself injected by a council approval (avoids infinite loop)
+        if (full && enrichedContent && !skipCouncilRef.current) {
           setCouncilTask(enrichedContent)
           setCouncilOpen(true)
         }
+        skipCouncilRef.current = false
 
         // Save conversation — done here (not in a useEffect) so selectedRepo and
         // messages are captured from the exact moment the user hit Send, avoiding
@@ -918,6 +921,7 @@ export function ChatInterface() {
         onClose={() => setCouncilOpen(false)}
         onApprove={(plan) => {
           setCouncilOpen(false)
+          skipCouncilRef.current = true // don't re-trigger council for the AI's implementation response
           handleSend(`The Agent Council has approved this plan — please implement it:\n\n${plan}`)
         }}
       />
