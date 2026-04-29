@@ -45,6 +45,8 @@ function shortenModelName(modelId: string): string {
     "claude-haiku-4-5-20251001": "Haiku 4.5",
     "grok-3": "Grok 3",
     "grok-3-mini": "Grok 3 Mini",
+    "grok-4-1-fast-reasoning": "Grok 4.1 Fast",
+    "grok-4-1-fast-non-reasoning": "Grok 4.1 Fast (lite)",
     "llama-3.1-8b-instant": "Llama 3.1 8B",
     "llama-3.3-70b-versatile": "Llama 3.3 70B",
     "mixtral-8x7b-32768": "Mixtral 8x7B",
