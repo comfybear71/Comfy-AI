@@ -14,10 +14,11 @@ import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
   FolderOpen, FileCode, ChevronRight,
-  GitPullRequest, X, Loader2, StopCircle, Plus, Trash2,
+  GitPullRequest, X, Loader2, StopCircle, Plus, Trash2, Users,
   CheckCircle, AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CouncilPanel } from "./council/CouncilPanel"
 
 interface GitHubFileItem {
   name: string
@@ -81,6 +82,10 @@ export function ChatInterface() {
   const [activeDocFiles, setActiveDocFiles] = useState<string[]>([])
   const [docsContext, setDocsContext] = useState("")
   const [docsPanelOpen, setDocsPanelOpen] = useState(false)
+
+  // Council
+  const [councilOpen, setCouncilOpen] = useState(false)
+  const [councilTask, setCouncilTask] = useState("")
 
   // ── Escape to stop generation ─────────────────────────────────────────────
   useEffect(() => {
@@ -692,7 +697,12 @@ export function ChatInterface() {
             ) : (
               <MessageList messages={messages} isLoading={isLoading} />
             )}
-            <ChatInput onSend={handleSend} onCommand={handleCommand} isLoading={isLoading} />
+            <ChatInput
+              onSend={handleSend}
+              onCommand={handleCommand}
+              onCouncil={(task) => { setCouncilTask(task); setCouncilOpen(true) }}
+              isLoading={isLoading}
+            />
           </div>
 
           {/* Docs panel */}
@@ -894,6 +904,28 @@ export function ChatInterface() {
           }}
         />
       )}
+
+      {/* Council FAB — visible when panel is closed */}
+      {!councilOpen && (
+        <button
+          onClick={() => setCouncilOpen(true)}
+          title="Agent Council (@council in chat)"
+          className="fixed bottom-24 right-4 z-50 w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 shadow-lg flex items-center justify-center transition-all hover:scale-105"
+        >
+          <Users className="w-4.5 h-4.5 text-white" />
+        </button>
+      )}
+
+      <CouncilPanel
+        task={councilTask}
+        selectedModel={selectedModel}
+        open={councilOpen}
+        onClose={() => setCouncilOpen(false)}
+        onApprove={(plan) => {
+          setCouncilOpen(false)
+          handleSend(`The Agent Council has approved this plan — please implement it:\n\n${plan}`)
+        }}
+      />
     </div>
   )
 }

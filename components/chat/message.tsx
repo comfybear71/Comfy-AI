@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, memo, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
@@ -108,16 +108,13 @@ function Table({ children }: any) {
     setTimeout(() => setCopiedCell(null), 2000)
   }
 
-  // Extract table data for responsive rendering
   const tableBody = children?.find((child: any) => child?.type === "tbody")
   const tableHead = children?.find((child: any) => child?.type === "thead")
 
   if (!tableBody) {
     return (
       <div className="my-4 overflow-x-auto border border-gray-700 rounded-lg">
-        <table className="w-full text-sm">
-          {children}
-        </table>
+        <table className="w-full text-sm">{children}</table>
       </div>
     )
   }
@@ -126,25 +123,18 @@ function Table({ children }: any) {
 
   return (
     <div className="my-4 space-y-3 !m-0">
-      {/* Desktop: traditional table view */}
       <div className="hidden sm:block border border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           {tableHead && <thead className="bg-[#0d1117] border-b border-gray-700">{tableHead.props.children}</thead>}
           <tbody>{rows}</tbody>
         </table>
       </div>
-
-      {/* Mobile: stacked card view */}
       <div className="sm:hidden space-y-3">
         {rows.map((row: any, idx: number) => {
           const cells = row.props?.children || []
           if (cells.length < 2) return null
-
-          const fieldCell = cells[0]
-          const valueCell = cells[1]
-          const fieldText = extractText(fieldCell)
-          const valueText = extractText(valueCell)
-
+          const fieldText = extractText(cells[0])
+          const valueText = extractText(cells[1])
           return (
             <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0d1117]">
               <div className="text-xs font-bold text-emerald-400 mb-2 uppercase">{fieldText}</div>
@@ -154,17 +144,7 @@ function Table({ children }: any) {
                   onClick={() => handleCopyCell(valueText)}
                   className="w-full text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 py-2 border border-gray-700 rounded-lg hover:border-emerald-400/50"
                 >
-                  {copiedCell === valueText ? (
-                    <>
-                      <Check className="w-3 h-3" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3" />
-                      Copy
-                    </>
-                  )}
+                  {copiedCell === valueText ? <><Check className="w-3 h-3" />Copied!</> : <><Copy className="w-3 h-3" />Copy</>}
                 </button>
               )}
             </div>
@@ -174,6 +154,18 @@ function Table({ children }: any) {
     </div>
   )
 }
+
+const MemoMarkdown = memo(function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock, table: Table }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+})
 
 export function Message({ role, content, images, timestamp, isStreaming, modelName }: MessageProps) {
   const isUser = role === "user"
@@ -245,13 +237,7 @@ export function Message({ role, content, images, timestamp, isStreaming, modelNa
               )}
               style={!expanded && overflows ? { maxHeight: TRUNCATE_HEIGHT } : undefined}
             >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
-                components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock, table: Table }}
-              >
-                {content}
-              </ReactMarkdown>
+              <MemoMarkdown content={content} />
 
               {!expanded && overflows && (
                 <div className={cn(
