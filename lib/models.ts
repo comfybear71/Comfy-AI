@@ -59,11 +59,8 @@ export const MODELS: ModelDef[] = [
   { id: "claude-sonnet-4-6",         name: "Claude Sonnet 4",  description: "Balanced · 200k ctx",      icon: Sparkles, provider: "anthropic",    vision: true,  tier: "standard", inputPer1M: 3,     outputPer1M: 15   },
   { id: "claude-opus-4-7",           name: "Claude Opus 4",    description: "Most capable · 200k ctx",  icon: Sparkles, provider: "anthropic",    vision: true,  tier: "premium",  inputPer1M: 5,     outputPer1M: 25   },
   // ── xAI (Grok) ──────────────────────────────────────────────────
-  { id: "grok-3-mini",               name: "Grok 3 Mini",         description: "Fast & efficient",          icon: Zap,      provider: "xai",          vision: false, tier: "budget",   inputPer1M: 0.30,  outputPer1M: 0.50 },
-  { id: "grok-4.1-fast",             name: "Grok 4.1 Fast",       description: "Speed-optimised · 131k",   icon: Zap,      provider: "xai",          vision: false, tier: "budget",   inputPer1M: 0.20,  outputPer1M: 0.50 },
-  { id: "grok-code-fast-1",          name: "Grok Code Fast",      description: "Code specialist · fast",   icon: Code,     provider: "xai",          vision: false, tier: "budget",   inputPer1M: 0.20,  outputPer1M: 1.50 },
+  { id: "grok-3-mini",               name: "Grok 3 Mini",         description: "Fast & efficient · budget", icon: Zap,      provider: "xai",          vision: false, tier: "budget",   inputPer1M: 0.30,  outputPer1M: 0.50 },
   { id: "grok-3",                    name: "Grok 3",              description: "Capable · 131k ctx",       icon: Bot,      provider: "xai",          vision: false, tier: "standard", inputPer1M: 3,     outputPer1M: 15   },
-  { id: "grok-4",                    name: "Grok 4",              description: "Most capable · 131k ctx",  icon: Sparkles, provider: "xai",          vision: false, tier: "premium",  inputPer1M: 3,     outputPer1M: 15   },
   // ── Ollama Cloud ────────────────────────────────────────────────
   { id: "kimi-k2:1t-cloud",          name: "Kimi K2",           description: "1T params · reasoning",   icon: Sparkles, provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.60,  outputPer1M: 2.50 },
   { id: "kimi-k2-thinking",          name: "Kimi K2 Thinking",  description: "Deep reasoning",           icon: Brain,    provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 1.00,  outputPer1M: 3.00 },
@@ -105,11 +102,11 @@ export function estimateAgentCost(modelId: string): number {
 
 export const DEFAULT_MODEL_ID = "llama-3.1-8b-instant"
 
-// Smart council defaults by role
+// Smart council defaults by role (using confirmed-live model IDs)
 export const COUNCIL_DEFAULT_MODELS: Record<string, string> = {
-  planner:  "grok-4.1-fast",          // budget — needs reasoning
-  coder:    "grok-code-fast-1",        // budget — code specialist
-  reviewer: "llama-3.3-70b-versatile", // free
-  security: "llama-3.3-70b-versatile", // free
-  perf:     "llama-3.1-8b-instant",   // free — fastest
+  planner:  "grok-3-mini",            // budget — fast reasoning via xAI
+  coder:    "grok-3-mini",            // budget — code tasks via xAI
+  reviewer: "llama-3.3-70b-versatile", // free — Groq
+  security: "llama-3.3-70b-versatile", // free — Groq
+  perf:     "llama-3.1-8b-instant",   // free — Groq fastest
 }
