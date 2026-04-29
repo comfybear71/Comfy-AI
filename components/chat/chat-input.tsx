@@ -9,13 +9,14 @@ import { SlashMenu, parseSlashCommand, type SlashCommand } from "./slash-command
 interface ChatInputProps {
   onSend: (message: string, images?: string[]) => void
   onCommand: (command: string, arg: string) => void
+  onCouncil?: (task: string) => void
   isLoading?: boolean
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const MAX_IMAGES = 5
 
-export function ChatInput({ onSend, onCommand, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("")
   const [images, setImages] = useState<string[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
@@ -47,6 +48,16 @@ export function ChatInput({ onSend, onCommand, isLoading }: ChatInputProps) {
 
   const handleSubmit = () => {
     if ((!input.trim() && images.length === 0) || isLoading) return
+
+    // @council trigger
+    const trimmed = input.trim()
+    if (trimmed.toLowerCase().startsWith("@council")) {
+      const task = trimmed.replace(/^@council\s*/i, "").trim() || "analyze the current codebase"
+      onCouncil?.(task)
+      setInput("")
+      setShowSlashMenu(false)
+      return
+    }
 
     const parsed = parseSlashCommand(input)
     if (parsed) {
@@ -176,7 +187,7 @@ export function ChatInput({ onSend, onCommand, isLoading }: ChatInputProps) {
             value={input}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Comfy AI… (type / for commands)"
+            placeholder="Message Comfy AI… (/ for commands · @council for multi-agent)"
             rows={1}
             className="flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
             disabled={isLoading}

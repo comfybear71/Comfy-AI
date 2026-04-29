@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, memo, useMemo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
@@ -66,6 +66,18 @@ function CodeBlock({ children, className, ...props }: any) {
   )
 }
 
+const MemoMarkdown = memo(function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+})
+
 export function Message({ role, content, images, timestamp, isStreaming }: MessageProps) {
   const isUser = role === "user"
   const [expanded, setExpanded] = useState(false)
@@ -129,13 +141,7 @@ export function Message({ role, content, images, timestamp, isStreaming }: Messa
               )}
               style={!expanded && overflows ? { maxHeight: TRUNCATE_HEIGHT } : undefined}
             >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
-                components={{ pre: ({ children }: any) => <>{children}</>, code: CodeBlock }}
-              >
-                {content}
-              </ReactMarkdown>
+              <MemoMarkdown content={content} />
 
               {!expanded && overflows && (
                 <div className={cn(
