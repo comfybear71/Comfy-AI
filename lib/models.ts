@@ -104,11 +104,14 @@ export function estimateAgentCost(modelId: string): number {
 
 export const DEFAULT_MODEL_ID = "llama-3.1-8b-instant"
 
-// Smart council defaults by role
+// Safe fallback used when a model returns "not found" at runtime
+export const COUNCIL_FALLBACK_MODEL = "grok-3-mini"
+
+// Smart council defaults by role — using confirmed-live model IDs only
 export const COUNCIL_DEFAULT_MODELS: Record<string, string> = {
-  planner:  "grok-4-1-fast-reasoning",  // budget — agentic reasoning via xAI 4.1
-  coder:    "grok-4-1-fast-reasoning",  // budget — best for tool-calling tasks
-  reviewer: "llama-3.3-70b-versatile",  // free — Groq
-  security: "llama-3.3-70b-versatile",  // free — Groq
-  perf:     "llama-3.1-8b-instant",    // free — Groq fastest
+  planner:  "grok-3-mini",             // confirmed live xAI budget model
+  coder:    "grok-3-mini",             // confirmed live xAI budget model
+  reviewer: "llama-3.3-70b-versatile", // free — Groq
+  security: "llama-3.3-70b-versatile", // free — Groq
+  perf:     "llama-3.1-8b-instant",   // free — Groq fastest
 }

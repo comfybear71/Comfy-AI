@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { callModelText } from "@/lib/call-model"
 import { AGENTS, AGENT_MAP } from "@/lib/agents"
 import type { AgentId, CouncilEvent, AgentModels } from "@/lib/council-types"
+import { COUNCIL_FALLBACK_MODEL } from "@/lib/models"
 import { getDb } from "@/lib/db"
 import { councilLessons } from "@/lib/schema"
 import { desc, sql } from "drizzle-orm"
@@ -16,6 +17,25 @@ interface RequestBody {
 
 function hashTask(task: string): string {
   return createHash("sha256").update(task.trim().toLowerCase()).digest("hex").slice(0, 16)
+}
+
+// Self-healing model call — if the chosen model returns "not found", retries with fallback
+async function safeCall(
+  model: string,
+  messages: { role: string; content: string }[],
+  signal?: AbortSignal
+): Promise<string> {
+  try {
+    return await callModelText(model, messages, signal)
+  } catch (err: any) {
+    const msg: string = err?.message ?? ""
+    const isNotFound = msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("does not exist")
+    if (isNotFound && model !== COUNCIL_FALLBACK_MODEL) {
+      console.warn(`[council] model "${model}" not found — falling back to ${COUNCIL_FALLBACK_MODEL}`)
+      return await callModelText(COUNCIL_FALLBACK_MODEL, messages, signal)
+    }
+    throw err
+  }
 }
 
 function parseFileOps(text: string): { type: "reading" | "writing"; path: string }[] {
@@ -117,7 +137,7 @@ export async function POST(req: NextRequest) {
         // ── Phase: planning ─────────────────────────────────────────────────
         emit({ event: "phase", phase: "planning" })
         emit({ event: "status", agentId: "planner", status: "thinking" })
-        const plannerText = await callModelText(modelFor("planner"), [
+        const plannerText = await safeCall(modelFor("planner"), [
           { role: "system", content: AGENT_MAP.planner.systemPrompt + lessonsContext },
           { role: "user", content: `Task: ${task}` },
         ])
@@ -132,7 +152,7 @@ export async function POST(req: NextRequest) {
         // ── Phase: coding ───────────────────────────────────────────────────
         emit({ event: "phase", phase: "coding" })
         emit({ event: "status", agentId: "coder", status: "thinking" })
-        const coderText = await callModelText(modelFor("coder"), [
+        const coderText = await safeCall(modelFor("coder"), [
           { role: "system", content: AGENT_MAP.coder.systemPrompt + lessonsContext },
           { role: "user", content: `Task: ${task}\n\nPlan:\n${plannerClean}` },
         ])
@@ -148,7 +168,7 @@ export async function POST(req: NextRequest) {
         for (const agentId of voteAgentIds) {
           emit({ event: "status", agentId, status: "reviewing" })
           const def = AGENT_MAP[agentId]
-          const voteText = await callModelText(modelFor(agentId), [
+          const voteText = await safeCall(modelFor(agentId), [
             { role: "system", content: def.systemPrompt },
             { role: "user", content: fullContext },
           ])
@@ -177,7 +197,7 @@ Avg score: ${avgScore}/10
 Output format:
 Lesson: <your one lesson here>`
 
-          const reflectText = await callModelText(modelFor("planner"), [
+          const reflectText = await safeCall(modelFor("planner"), [
             { role: "system", content: reflectorPrompt },
             { role: "user", content: "Write the lesson." },
           ])
