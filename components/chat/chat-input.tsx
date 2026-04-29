@@ -5,18 +5,22 @@ import { Send, Paperclip, X, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SlashMenu, parseSlashCommand, type SlashCommand } from "./slash-commands"
+import { ModePicker } from "./mode-picker"
+import type { AppMode } from "@/lib/modes"
 
 interface ChatInputProps {
   onSend: (message: string, images?: string[]) => void
   onCommand: (command: string, arg: string) => void
   onCouncil?: (task: string) => void
   isLoading?: boolean
+  mode: AppMode
+  onModeChange: (mode: AppMode) => void
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const MAX_IMAGES = 5
 
-export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInputProps) {
+export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onModeChange }: ChatInputProps) {
   const [input, setInput] = useState("")
   const [images, setImages] = useState<string[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
@@ -37,7 +41,6 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInput
 
   const handleChange = (value: string) => {
     setInput(value)
-    // Show slash menu when input starts with "/" with no space yet
     if (value.startsWith("/") && !value.includes(" ")) {
       setSlashQuery(value.slice(1))
       setShowSlashMenu(true)
@@ -49,7 +52,6 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInput
   const handleSubmit = () => {
     if ((!input.trim() && images.length === 0) || isLoading) return
 
-    // @council trigger
     const trimmed = input.trim()
     if (trimmed.toLowerCase().startsWith("@council")) {
       const task = trimmed.replace(/^@council\s*/i, "").trim() || "analyze the current codebase"
@@ -89,7 +91,6 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInput
       onCommand(cmd.name, "")
       setInput("")
     } else {
-      // Commands that need an argument — fill prefix so user can type the arg
       setInput(`/${cmd.name} `)
       textareaRef.current?.focus()
     }
@@ -163,49 +164,57 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading }: ChatInput
           </div>
         )}
 
-        <div className="relative flex items-end gap-2 bg-[#161b22] rounded-2xl border border-gray-700 p-2 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/50 transition-all">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0 h-9 w-9 text-gray-400 hover:text-gray-100"
-            title="Attach image"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
+        <div className="relative flex flex-col bg-[#161b22] rounded-2xl border border-gray-700 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/50 transition-all">
+          {/* Text area row */}
+          <div className="flex items-end gap-2 p-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 h-9 w-9 text-gray-400 hover:text-gray-100"
+              title="Attach image"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="w-5 h-5" />
+            </Button>
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Message Comfy AI… (/ for commands · @council for multi-agent)"
-            rows={1}
-            className="flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
-            disabled={isLoading}
-          />
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => handleChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message Comfy AI…"
+              rows={1}
+              className="flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
+              disabled={isLoading}
+            />
 
-          <Button
-            onClick={handleSubmit}
-            disabled={(!input.trim() && images.length === 0) || isLoading}
-            size="icon"
-            className={cn(
-              "shrink-0 h-9 w-9 rounded-xl transition-all",
-              (input.trim() || images.length > 0)
-                ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                : "bg-gray-700 text-gray-400"
-            )}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={(!input.trim() && images.length === 0) || isLoading}
+              size="icon"
+              className={cn(
+                "shrink-0 h-9 w-9 rounded-xl transition-all",
+                (input.trim() || images.length > 0)
+                  ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                  : "bg-gray-700 text-gray-400"
+              )}
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Mode picker row — sits at bottom of input box */}
+          <div className="flex items-center px-3 pb-2">
+            <ModePicker mode={mode} onModeChange={onModeChange} />
+          </div>
         </div>
 
         {attachError && (
