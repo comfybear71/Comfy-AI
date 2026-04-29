@@ -1,4 +1,5 @@
 import type { AgentId } from "./council-types"
+import { COUNCIL_DEFAULT_MODELS } from "./models"
 
 export interface AgentDef {
   id: AgentId
@@ -8,6 +9,7 @@ export interface AgentDef {
   border: string    // tailwind border class
   ring: string      // tailwind ring class
   icon: "Lightbulb" | "Code2" | "Eye" | "ShieldCheck" | "Zap"
+  defaultModel: string  // smart cost-tier default for this agent
   systemPrompt: string
 }
 
@@ -20,6 +22,7 @@ export const AGENTS: AgentDef[] = [
     border: "border-blue-500/30",
     ring: "ring-blue-500/50",
     icon: "Lightbulb",
+    defaultModel: COUNCIL_DEFAULT_MODELS.planner,
     systemPrompt: `You are the Planner agent in a multi-agent development council.
 Analyze the task and produce a clear, concise implementation plan.
 
@@ -42,6 +45,7 @@ Keep it under 200 words. Be specific and actionable.`,
     border: "border-emerald-500/30",
     ring: "ring-emerald-500/50",
     icon: "Code2",
+    defaultModel: COUNCIL_DEFAULT_MODELS.coder,
     systemPrompt: `You are the Coder agent in a multi-agent development council.
 You receive a task and a plan. Specify the key code changes needed without writing full code.
 
@@ -60,6 +64,7 @@ Keep it under 180 words. Be precise about file paths and function names.`,
     border: "border-amber-500/30",
     ring: "ring-amber-500/50",
     icon: "Eye",
+    defaultModel: COUNCIL_DEFAULT_MODELS.reviewer,
     systemPrompt: `You are the Code Reviewer agent in a multi-agent development council.
 Review the implementation plan and code approach for quality and correctness.
 
@@ -76,6 +81,7 @@ Issues: <bullet list of concerns, or "None">`,
     border: "border-red-500/30",
     ring: "ring-red-500/50",
     icon: "ShieldCheck",
+    defaultModel: COUNCIL_DEFAULT_MODELS.security,
     systemPrompt: `You are the Security Auditor agent in a multi-agent development council.
 Review the plan for security risks: injection, auth gaps, validation, data exposure.
 
@@ -92,6 +98,7 @@ Risks: <bullet list of security concerns, or "None">`,
     border: "border-purple-500/30",
     ring: "ring-purple-500/50",
     icon: "Zap",
+    defaultModel: COUNCIL_DEFAULT_MODELS.perf,
     systemPrompt: `You are the Performance Optimizer agent in a multi-agent development council.
 Review the plan for performance implications: rendering, DB queries, network, memory.
 

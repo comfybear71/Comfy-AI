@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { AgentCard } from "./AgentCard"
 import { DiscussionFeed } from "./DiscussionFeed"
 import { AGENTS } from "@/lib/agents"
+import { estimateAgentCost, getModel, TIER_COLORS } from "@/lib/models"
 import type { AgentId, AgentModels, AgentState, CouncilEvent, FeedEntry } from "@/lib/council-types"
 
 const DEFAULT_AGENT_STATES = (): Record<AgentId, AgentState> => ({
@@ -26,7 +27,7 @@ interface CouncilPanelProps {
 
 export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: CouncilPanelProps) {
   const [agentModels, setAgentModels] = useState<AgentModels>(() =>
-    Object.fromEntries(AGENTS.map((a) => [a.id, selectedModel])) as AgentModels
+    Object.fromEntries(AGENTS.map((a) => [a.id, a.defaultModel])) as AgentModels
   )
   const [agentStates, setAgentStates] = useState<Record<AgentId, AgentState>>(DEFAULT_AGENT_STATES)
   const [feed, setFeed] = useState<FeedEntry[]>([])
@@ -134,14 +135,7 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
     }
   }, [open, task]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync agentModels when selectedModel changes (only agents still on the session default)
-  useEffect(() => {
-    setAgentModels((prev) => {
-      const allOnSession = AGENTS.every((a) => prev[a.id] === Object.values(prev)[0])
-      if (!allOnSession) return prev
-      return Object.fromEntries(AGENTS.map((a) => [a.id, selectedModel])) as AgentModels
-    })
-  }, [selectedModel])
+  // (no selectedModel sync — agents use smart cost-tier defaults independently)
 
   if (!open) return null
 
@@ -150,6 +144,15 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
     : avgScore >= 8 ? "text-emerald-400"
     : avgScore >= 6 ? "text-amber-400"
     : "text-red-400"
+
+  const estCost = AGENTS.reduce((sum, a) => sum + estimateAgentCost(agentModels[a.id]), 0)
+  const estCostStr = estCost === 0 ? "free" : estCost < 0.001 ? "<$0.001" : `~$${estCost.toFixed(3)}`
+  const highestTier = AGENTS.reduce<string>((top, a) => {
+    const t = getModel(agentModels[a.id]).tier
+    const order = { free: 0, budget: 1, standard: 2, premium: 3 }
+    return (order[t as keyof typeof order] ?? 0) > (order[top as keyof typeof order] ?? 0) ? t : top
+  }, "free")
+  const costColor = TIER_COLORS[highestTier as keyof typeof TIER_COLORS] ?? "text-gray-400"
 
   return (
     <>
@@ -172,6 +175,9 @@ export function CouncilPanel({ task, selectedModel, open, onClose, onApprove }: 
           {!running && avgScore !== null && (
             <span className={cn("text-xs font-bold shrink-0", scoreColor)}>avg {avgScore}/10</span>
           )}
+          <span className={cn("text-[10px] font-medium shrink-0", costColor)} title="Estimated council run cost">
+            {estCostStr}
+          </span>
 
           <button onClick={() => setCollapsed(!collapsed)} className="p-0.5 hover:bg-gray-700 rounded transition-colors">
             <ChevronDown className={cn("w-4 h-4 text-gray-400 transition-transform", collapsed && "rotate-180")} />
