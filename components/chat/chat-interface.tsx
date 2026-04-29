@@ -688,13 +688,6 @@ export function ChatInterface() {
               <span className="hidden sm:inline">Save failed</span>
             </span>
           )}
-
-          <ModePicker
-            mode={mode}
-            selectedModel={selectedModel}
-            onModeChange={handleModeChange}
-            onModelChange={handleModelChange}
-          />
         </div>
 
         {activePR && (
@@ -726,8 +719,10 @@ export function ChatInterface() {
             <ChatInput
               onSend={handleSend}
               onCommand={handleCommand}
-              onCouncil={(task) => { setCouncilTask(task); setCouncilOpen(true) }} // @council override
+              onCouncil={(task) => { setCouncilTask(task); setCouncilOpen(true) }}
               isLoading={isLoading}
+              mode={mode}
+              onModeChange={handleModeChange}
             />
           </div>
 
