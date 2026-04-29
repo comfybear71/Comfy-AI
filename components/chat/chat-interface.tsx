@@ -5,11 +5,13 @@ import { Sidebar, type GitHubRepoItem, type WebhookEventItem } from "@/component
 import { MessageList } from "./message-list"
 import { ChatInput } from "./chat-input"
 import { ModelPicker } from "./model-picker"
+import { ModePicker } from "./mode-picker"
 import { MessageProps } from "./message"
 import { FileViewer } from "@/components/file-viewer"
 import { PRModal } from "@/components/pr-modal"
 import { PRStatusBanner } from "@/components/pr-status-banner"
 import { MODELS, getBestVisionModel, getModel, DEFAULT_MODEL_ID } from "@/lib/models"
+import { MODES, MODE_MAP, DEFAULT_MODE, type AppMode } from "@/lib/modes"
 import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
@@ -43,7 +45,8 @@ export function ChatInterface() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [messages, setMessages] = useState<MessageProps[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID)
+  const [mode, setMode] = useState<AppMode>(DEFAULT_MODE)
+  const [selectedModel, setSelectedModel] = useState(() => MODE_MAP[DEFAULT_MODE].chatModel)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const lastSavedCountRef = useRef(0)
   const conversationIdRef = useRef<string | null>(null)
@@ -160,6 +163,7 @@ export function ChatInterface() {
       if (data.pinnedRepos) setPinnedRepos(data.pinnedRepos)
       const s = data.settings ?? {}
       if (s.selectedModel) setSelectedModel(s.selectedModel)
+      if (s.mode && MODE_MAP[s.mode as AppMode]) setMode(s.mode as AppMode)
 
       // Docs — auto-enable all on first visit (no saved preference yet)
       const docs: string[] = Array.isArray(docList) ? docList : []
@@ -213,6 +217,14 @@ export function ChatInterface() {
       setDocsContext(combined ? `Project documentation for context:\n\n${combined}` : "")
     })
   }, [activeDocFiles])
+
+  // ── Mode change — updates model automatically ─────────────────────────────
+  const handleModeChange = useCallback((newMode: AppMode) => {
+    setMode(newMode)
+    const chatModel = MODE_MAP[newMode].chatModel
+    setSelectedModel(chatModel)
+    savePrefs({ settings: { selectedModel: chatModel, mode: newMode } })
+  }, [])
 
   // ── Save selectedModel to Neon when it changes ────────────────────────────
   const handleModelChange = useCallback((modelId: string) => {
@@ -415,9 +427,9 @@ export function ChatInterface() {
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: full, isStreaming: false } : m))
         }
 
-        // Auto-trigger Agent Council after every AI response, unless this
-        // message was itself injected by a council approval (avoids infinite loop)
-        if (full && enrichedContent && !skipCouncilRef.current) {
+        // Auto-trigger Agent Council for expert/heavy modes only
+        const councilEnabled = MODE_MAP[mode].councilEnabled
+        if (full && enrichedContent && councilEnabled && !skipCouncilRef.current) {
           setCouncilTask(enrichedContent)
           setCouncilOpen(true)
         }
@@ -677,7 +689,12 @@ export function ChatInterface() {
             </span>
           )}
 
-          <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
+          <ModePicker
+            mode={mode}
+            selectedModel={selectedModel}
+            onModeChange={handleModeChange}
+            onModelChange={handleModelChange}
+          />
         </div>
 
         {activePR && (
