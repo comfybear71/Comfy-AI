@@ -60,6 +60,31 @@ function toAnthropicMessages(messages: Message[]) {
     })
 }
 
+// ── Tool indicator helpers ───────────────────────────────────────────────────
+
+function toolCallBanner(name: string, args: any): string {
+  switch (name) {
+    case "read_file":
+      return `\n\`📂 Reading\` \`${args.path ?? args.file ?? "file"}\`${args.branch ? ` on \`${args.branch}\`` : ""}\n`
+    case "update_file":
+      return `\n\`✏️ Writing\` \`${args.path ?? "file"}\` — ${args.message?.slice(0, 60) ?? "updating"}\n`
+    case "create_branch":
+      return `\n\`🌿 Branch\` \`${args.branch}\` from \`${args.from_branch ?? "master"}\`\n`
+    default:
+      return `\n\`🔧 ${name.replace(/_/g, " ")}\` ${JSON.stringify(args).slice(0, 80)}\n`
+  }
+}
+
+function toolResultBanner(name: string, result: string): string {
+  if (name === "read_file") {
+    const lines = result.split("\n").length
+    return `\`✓ ${lines} lines loaded\`\n\n`
+  }
+  if (name === "update_file") return `\`✓ File committed\`\n\n`
+  if (name === "create_branch") return `\`✓ Branch ready\`\n\n`
+  return result.length > 300 ? `\`✓ Done\`\n\n` : `${result}\n\n`
+}
+
 // ── Anthropic handler with tool loop ────────────────────────────────────────
 
 function handleAnthropicWithTools(messages: Message[], model: string, toolsEnabled: boolean): Response {
@@ -105,10 +130,9 @@ function handleAnthropicWithTools(messages: Message[], model: string, toolsEnabl
 
           const toolResults: any[] = []
           for (const toolUse of toolUseBlocks) {
-            const label = toolUse.name.replace(/_/g, " ")
-            controller.enqueue(encoder.encode(`\n\n🔧 **${label}**: \`${JSON.stringify(toolUse.input).slice(0, 120)}\`\n`))
+            controller.enqueue(encoder.encode(toolCallBanner(toolUse.name, toolUse.input)))
             const result = await executeGitHubTool(toolUse.name, toolUse.input)
-            controller.enqueue(encoder.encode(`> ${result}\n`))
+            controller.enqueue(encoder.encode(toolResultBanner(toolUse.name, result)))
             toolResults.push({ type: "tool_result", tool_use_id: toolUse.id, content: result })
           }
 
@@ -186,10 +210,9 @@ function handleOpenAIWithTools(messages: Message[], model: string, provider: Pro
             const fnName = tc.function?.name
             let args: any = {}
             try { args = JSON.parse(tc.function?.arguments || "{}") } catch {}
-            const label = fnName?.replace(/_/g, " ") || "tool"
-            controller.enqueue(encoder.encode(`\n\n🔧 **${label}**: \`${JSON.stringify(args).slice(0, 120)}\`\n`))
+            controller.enqueue(encoder.encode(toolCallBanner(fnName, args)))
             const result = await executeGitHubTool(fnName, args)
-            controller.enqueue(encoder.encode(`> ${result}\n`))
+            controller.enqueue(encoder.encode(toolResultBanner(fnName, result)))
             convo.push({
               role: "tool",
               tool_call_id: tc.id,
