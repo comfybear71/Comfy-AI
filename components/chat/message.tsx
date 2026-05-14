@@ -37,7 +37,7 @@ const MODEL_NAME_MAP: Record<string, string> = {
   "claude-haiku-4-5-20251001": "Haiku 4.5",
   "grok-3": "Grok 3",
   "grok-3-mini": "Grok 3 Mini",
-  "grok-4-0": "Grok 4",
+  "grok-4.3": "Grok 4.3",
   "grok-4-1-fast-reasoning": "Grok 4.1 Fast",
   "grok-4-1-fast-non-reasoning": "Grok 4.1 Fast (lite)",
   "llama-3.1-8b-instant": "Llama 3.1 8B",

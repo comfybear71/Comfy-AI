@@ -70,7 +70,7 @@ export const MODELS: ModelDef[] = [
   // ── xAI (Grok) ──────────────────────────────────────────────────────────────
   { id: "grok-3-mini",              name: "Grok 3 Mini",      description: "Fast & cheap · 131k ctx",   icon: Zap,      provider: "xai",       vision: false, tier: "budget",   inputPer1M: 0.30,  outputPer1M: 0.50  },
   { id: "grok-3",                   name: "Grok 3",           description: "Capable · 131k ctx",        icon: Bot,      provider: "xai",       vision: false, tier: "standard", inputPer1M: 3,     outputPer1M: 15    },
-  { id: "grok-4-0",                 name: "Grok 4",           description: "Most capable · 256k ctx",   icon: Sparkles, provider: "xai",       vision: true,  tier: "premium",  inputPer1M: 3,     outputPer1M: 15    },
+  { id: "grok-4.3",                  name: "Grok 4.3",         description: "Most intelligent · fastest",   icon: Sparkles, provider: "xai",       vision: true,  tier: "premium",  inputPer1M: 3,     outputPer1M: 15    },
 
   // ── Ollama Cloud (large open models) ────────────────────────────────────────
   { id: "deepseek-v4-pro",          name: "DeepSeek V4 Pro",     description: "Flagship · best quality",    icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.27, outputPer1M: 1.10  },
