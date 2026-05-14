@@ -229,7 +229,7 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
               onKeyDown={handleKeyDown}
               placeholder="Message Comfy AI…"
               rows={1}
-              className="flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
+              className="flex-1 resize-none bg-transparent border-0 p-2 text-[16px] leading-relaxed text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
               disabled={isLoading}
             />
 
