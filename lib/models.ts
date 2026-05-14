@@ -73,9 +73,10 @@ export const MODELS: ModelDef[] = [
   { id: "grok-4-0",                 name: "Grok 4",           description: "Most capable · 256k ctx",   icon: Sparkles, provider: "xai",       vision: true,  tier: "premium",  inputPer1M: 3,     outputPer1M: 15    },
 
   // ── Ollama Cloud (large open models) ────────────────────────────────────────
-  { id: "deepseek-v3.1:671b-cloud", name: "DeepSeek V3.1 671B", description: "Massive · top coder",    icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.27, outputPer1M: 1.10  },
-  { id: "qwen3-coder:480b-cloud",   name: "Qwen 3 Coder 480B",  description: "480B · code expert",     icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.50, outputPer1M: 2.00  },
-  { id: "kimi-k2:1t-cloud",         name: "Kimi K2",             description: "1T params · reasoning", icon: Sparkles, provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.60, outputPer1M: 2.50  },
+  { id: "deepseek-v4-pro",          name: "DeepSeek V4 Pro",     description: "Flagship · best quality",    icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.27, outputPer1M: 1.10  },
+  { id: "deepseek-v4-flash",        name: "DeepSeek V4 Flash",   description: "Faster · cheaper",           icon: Code,     provider: "ollama-cloud", vision: false, tier: "budget",   inputPer1M: 0.10, outputPer1M: 0.40  },
+  { id: "qwen3-coder:480b-cloud",   name: "Qwen 3 Coder 480B",   description: "480B · code expert",         icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.50, outputPer1M: 2.00  },
+  { id: "kimi-k2:1t-cloud",         name: "Kimi K2",             description: "1T params · reasoning",      icon: Sparkles, provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.60, outputPer1M: 2.50  },
 ]
 
 export const PROVIDER_LABELS: Record<Provider, string> = Object.fromEntries(
