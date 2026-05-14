@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, memo } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
-import { Copy, Check, Bot, CornerDownRight } from "lucide-react"
+import { Copy, Check, Bot, CornerDownRight, ThumbsUp, ThumbsDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const TRUNCATE_HEIGHT = 420
@@ -202,16 +202,18 @@ export interface MessageProps {
   modelName?: string
   suggestions?: string[]
   onSuggest?: (text: string) => void
+  onFeedback?: (vote: "up" | "down") => void
 }
 
 // ── Message component ─────────────────────────────────────────────────────────
 
 export function Message({
-  role, content, images, timestamp, isStreaming, modelName, suggestions, onSuggest,
+  role, content, images, timestamp, isStreaming, modelName, suggestions, onSuggest, onFeedback,
 }: MessageProps) {
   const isUser = role === "user"
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
+  const [voted, setVoted] = useState<"up" | "down" | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -311,6 +313,44 @@ export function Message({
                     {s}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Feedback buttons */}
+            {!isStreaming && onFeedback && (
+              <div className="flex items-center gap-1 mt-3">
+                <button
+                  onClick={() => {
+                    const next = voted === "up" ? null : "up"
+                    setVoted(next)
+                    if (next) onFeedback(next)
+                  }}
+                  title="Helpful"
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    voted === "up"
+                      ? "text-emerald-400 bg-emerald-500/10"
+                      : "text-gray-600 hover:text-gray-400 hover:bg-gray-700/40"
+                  )}
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    const next = voted === "down" ? null : "down"
+                    setVoted(next)
+                    if (next) onFeedback(next)
+                  }}
+                  title="Not helpful"
+                  className={cn(
+                    "p-1.5 rounded-lg transition-colors",
+                    voted === "down"
+                      ? "text-red-400 bg-red-500/10"
+                      : "text-gray-600 hover:text-gray-400 hover:bg-gray-700/40"
+                  )}
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
           </>

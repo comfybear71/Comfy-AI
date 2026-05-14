@@ -8,9 +8,10 @@ interface MessageListProps {
   isLoading?: boolean
   suggestions?: Record<string, string[]>
   onSuggest?: (text: string) => void
+  onFeedback?: (messageId: string, vote: "up" | "down") => void
 }
 
-export function MessageList({ messages, isLoading, suggestions = {}, onSuggest }: MessageListProps) {
+export function MessageList({ messages, isLoading, suggestions = {}, onSuggest, onFeedback }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -32,6 +33,10 @@ export function MessageList({ messages, isLoading, suggestions = {}, onSuggest }
           {...message}
           suggestions={message.id === lastAIId ? suggestions[message.id] : undefined}
           onSuggest={onSuggest}
+          onFeedback={message.role === "assistant" && !message.isStreaming
+            ? (vote) => onFeedback?.(message.id, vote)
+            : undefined
+          }
         />
       ))}
       <div ref={bottomRef} />

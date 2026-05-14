@@ -87,7 +87,7 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
 
   const handleSlashSelect = (cmd: SlashCommand) => {
     setShowSlashMenu(false)
-    if (cmd.name === "clear" || cmd.name === "pr" || cmd.name === "docs" || cmd.name === "help") {
+    if (cmd.name === "clear" || cmd.name === "pr" || cmd.name === "docs" || cmd.name === "help" || cmd.name === "improve") {
       onCommand(cmd.name, "")
       setInput("")
     } else {

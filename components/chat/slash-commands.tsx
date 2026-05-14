@@ -3,7 +3,7 @@
 import React from "react"
 import { cn } from "@/lib/utils"
 import {
-  Trash2, Cpu, HelpCircle, GitBranch, GitPullRequest, FileText,
+  Trash2, Cpu, HelpCircle, GitBranch, GitPullRequest, FileText, Zap,
 } from "lucide-react"
 
 export interface SlashCommand {
@@ -19,7 +19,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "repo",   description: "Switch active GitHub repo",        usage: "/repo <name>",     icon: GitBranch     },
   { name: "pr",     description: "Open create PR modal",             usage: "/pr",              icon: GitPullRequest},
   { name: "docs",   description: "Toggle project docs as context",   usage: "/docs",            icon: FileText      },
-  { name: "help",   description: "Show available commands",          usage: "/help",            icon: HelpCircle    },
+  { name: "help",    description: "Show available commands",          usage: "/help",            icon: HelpCircle    },
+  { name: "improve", description: "Self-audit: AI reads the codebase and proposes improvements", usage: "/improve", icon: Zap },
 ]
 
 interface SlashMenuProps {
