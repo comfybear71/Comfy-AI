@@ -2,29 +2,39 @@ import { NextRequest, NextResponse } from "next/server"
 import { getDb } from "@/lib/db"
 import { userPrefs } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+import type { MemoryData } from "@/lib/memory"
 
-// For now, use a default user ID. Will be replaced with Google Auth user ID later.
 const DEFAULT_USER_ID = "default"
+
+export interface UserSettings {
+  selectedRepo?: string | null
+  selectedModel?: string | null
+  mode?: string | null
+  activeDocFiles?: string[]
+  memory?: MemoryData
+}
 
 export async function GET() {
   try {
-    const [prefs] = await getDb()
+    const db = getDb()
+    const [prefs] = await db
       .select()
       .from(userPrefs)
       .where(eq(userPrefs.userId, DEFAULT_USER_ID))
       .limit(1)
 
     if (!prefs) {
-      // Return defaults
       return NextResponse.json({
         theme: "system",
-        pinnedRepos: [],
+        pinnedRepos: [] as string[],
+        settings: {} as UserSettings,
       })
     }
 
     return NextResponse.json({
       theme: prefs.theme,
       pinnedRepos: prefs.pinnedRepos as string[],
+      settings: (prefs.settings ?? {}) as UserSettings,
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -37,30 +47,33 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { theme, pinnedRepos } = body
+    const { theme, pinnedRepos, settings } = body
+    const db = getDb()
 
-    const existing = await getDb()
+    const [existing] = await db
       .select()
       .from(userPrefs)
       .where(eq(userPrefs.userId, DEFAULT_USER_ID))
       .limit(1)
 
-    if (existing.length > 0) {
-      // Update
-      await getDb()
+    if (existing) {
+      await db
         .update(userPrefs)
         .set({
-          theme: theme ?? existing[0].theme,
-          pinnedRepos: pinnedRepos ?? existing[0].pinnedRepos,
+          theme: theme ?? existing.theme,
+          pinnedRepos: pinnedRepos ?? existing.pinnedRepos,
+          settings: settings !== undefined
+            ? { ...(existing.settings as object), ...settings }
+            : existing.settings,
           updatedAt: new Date(),
         })
         .where(eq(userPrefs.userId, DEFAULT_USER_ID))
     } else {
-      // Insert
-      await getDb().insert(userPrefs).values({
+      await db.insert(userPrefs).values({
         userId: DEFAULT_USER_ID,
         theme: theme || "system",
         pinnedRepos: pinnedRepos || [],
+        settings: settings || {},
       })
     }
 

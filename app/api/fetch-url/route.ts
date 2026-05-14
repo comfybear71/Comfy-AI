@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 
+function isBlockedHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "") // strip IPv6 brackets
+  // Loopback
+  if (h === "localhost" || h === "127.0.0.1" || h === "::1") return true
+  // Link-local
+  if (h.startsWith("169.254.")) return true
+  // RFC 1918 private ranges
+  if (h.startsWith("10.")) return true
+  if (h.startsWith("192.168.")) return true
+  // 172.16.0.0/12 → 172.16.x.x – 172.31.x.x
+  const m = h.match(/^172\.(\d+)\./)
+  if (m && parseInt(m[1], 10) >= 16 && parseInt(m[1], 10) <= 31) return true
+  // Carrier-grade NAT 100.64.0.0/10 → 100.64 – 100.127
+  const cgnat = h.match(/^100\.(\d+)\./)
+  if (cgnat && parseInt(cgnat[1], 10) >= 64 && parseInt(cgnat[1], 10) <= 127) return true
+  // IPv6 private / link-local / unique-local
+  if (h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd")) return true
+  // Metadata endpoints (AWS/GCP/Azure)
+  if (h === "169.254.169.254" || h === "metadata.google.internal") return true
+  return false
+}
+
 function isValidUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return false
-    }
-    // Block internal IPs
-    const hostname = parsed.hostname
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname.startsWith("10.") ||
-      hostname.startsWith("192.168.") ||
-      hostname.startsWith("172.16.") ||
-      hostname.startsWith("172.17.") ||
-      hostname.startsWith("172.18.") ||
-      hostname.startsWith("172.19.") ||
-      hostname.startsWith("172.2") ||
-      hostname.startsWith("172.30.") ||
-      hostname.startsWith("172.31.") ||
-      hostname.startsWith("169.254.") ||
-      hostname.startsWith("[::1]") ||
-      hostname.startsWith("[fc00:") ||
-      hostname.startsWith("[fe80:")
-    ) {
-      return false
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false
+    if (isBlockedHostname(parsed.hostname)) return false
+    // Block numeric-only hostnames that look like raw IPs not caught above
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(parsed.hostname)) {
+      // Allow only public IPs — if we reach here the IP isn't private, so allow
     }
     return true
   } catch {
