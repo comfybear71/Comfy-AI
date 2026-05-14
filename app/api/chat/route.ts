@@ -9,7 +9,7 @@ import {
 } from "@/lib/github-tools"
 
 type Message = { role: string; content: string; images?: string[] }
-type Provider = "anthropic" | "xai" | "ollama" | "groq" | "ollama-cloud"
+type Provider = "anthropic" | "xai" | "groq" | "deepseek" | "ollama-cloud"
 
 const GROQ_MODEL_IDS = new Set([
   "llama-3.1-8b-instant",
@@ -18,12 +18,20 @@ const GROQ_MODEL_IDS = new Set([
   "llama-3.1-70b-versatile",
 ])
 
+// Plug-and-play: add new OpenAI-compatible providers here only
+const OPENAI_COMPAT: Record<string, { endpoint: string; envKey: string }> = {
+  xai:            { endpoint: "https://api.x.ai/v1/chat/completions",            envKey: "XAI_API_KEY"          },
+  groq:           { endpoint: "https://api.groq.com/openai/v1/chat/completions", envKey: "GROQ_API_KEY"         },
+  deepseek:       { endpoint: "https://api.deepseek.com/v1/chat/completions",    envKey: "DEEPSEEK_API_KEY"     },
+  "ollama-cloud": { endpoint: "https://ollama.com/v1/chat/completions",          envKey: "OLLAMA_CLOUD_API_KEY" },
+}
+
 function detectProvider(model: string): Provider {
   if (model.startsWith("claude-")) return "anthropic"
   if (model.startsWith("grok-")) return "xai"
+  if (model.startsWith("deepseek-")) return "deepseek"
   if (GROQ_MODEL_IDS.has(model)) return "groq"
-  if (model.endsWith(":cloud") || model.endsWith("-cloud") || model.endsWith("-thinking")) return "ollama-cloud"
-  return "ollama"
+  return "ollama-cloud"
 }
 
 function detectImageMediaType(base64: string): string {
@@ -130,19 +138,9 @@ function handleAnthropicWithTools(messages: Message[], model: string, toolsEnabl
 
 function handleOpenAIWithTools(messages: Message[], model: string, provider: Provider): Response {
   const encoder = new TextEncoder()
-
-  let endpoint = ""
-  let apiKey = ""
-  if (provider === "xai") {
-    endpoint = "https://api.x.ai/v1/chat/completions"
-    apiKey = process.env.XAI_API_KEY || ""
-  } else if (provider === "groq") {
-    endpoint = "https://api.groq.com/openai/v1/chat/completions"
-    apiKey = process.env.GROQ_API_KEY || ""
-  } else {
-    endpoint = "https://ollama.com/v1/chat/completions"
-    apiKey = process.env.OLLAMA_CLOUD_API_KEY || ""
-  }
+  const cfg = OPENAI_COMPAT[provider]
+  const endpoint = cfg?.endpoint ?? ""
+  const apiKey = cfg ? (process.env[cfg.envKey] ?? "") : ""
 
   let convo: any[] = messages.map((m) => ({ role: m.role, content: m.content }))
 
@@ -220,62 +218,18 @@ function handleOpenAIWithTools(messages: Message[], model: string, provider: Pro
 async function callProvider(messages: Message[], model: string): Promise<Response> {
   const provider = detectProvider(model)
 
-  if (provider === "xai") {
-    const apiKey = process.env.XAI_API_KEY
-    if (!apiKey) throw new Error("XAI_API_KEY not configured")
-    return fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        stream: true,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      }),
-    })
-  }
-
-  if (provider === "groq") {
-    const apiKey = process.env.GROQ_API_KEY
-    if (!apiKey) throw new Error("GROQ_API_KEY not configured")
-    return fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        stream: true,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      }),
-    })
-  }
-
-  if (provider === "ollama-cloud") {
-    const apiKey = process.env.OLLAMA_CLOUD_API_KEY
-    if (!apiKey) throw new Error("OLLAMA_CLOUD_API_KEY not configured")
-    return fetch("https://ollama.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        stream: true,
-        messages: messages.map((m) => ({ role: m.role, content: m.content })),
-      }),
-    })
-  }
-
-  // Ollama (local/self-hosted)
-  const apiUrl = process.env.OLLAMA_API_URL
-  if (!apiUrl) throw new Error("OLLAMA_API_URL not configured")
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (process.env.OLLAMA_API_KEY)
-    headers.Authorization = `Basic ${Buffer.from(`admin:${process.env.OLLAMA_API_KEY}`).toString("base64")}`
-  return fetch(`${apiUrl}/api/chat`, {
+  // All non-Anthropic providers are OpenAI-compatible — use plug-and-play config
+  const cfg = OPENAI_COMPAT[provider]
+  if (!cfg) throw new Error(`Unknown provider: ${provider}`)
+  const apiKey = process.env[cfg.envKey]
+  if (!apiKey) throw new Error(`${cfg.envKey} not configured`)
+  return fetch(cfg.endpoint, {
     method: "POST",
-    headers,
-    signal: AbortSignal.timeout(55000),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      messages: messages.map((m) => ({ role: m.role, content: m.content, ...(m.images ? { images: m.images } : {}) })),
       stream: true,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
     }),
   })
 }
@@ -283,7 +237,7 @@ async function callProvider(messages: Message[], model: string): Promise<Respons
 function extractToken(line: string, provider: Provider): string {
   if (!line.trim()) return ""
 
-  if (provider === "xai" || provider === "groq" || provider === "ollama-cloud") {
+  if (provider === "xai" || provider === "groq" || provider === "ollama-cloud" || provider === "deepseek") {
     if (!line.startsWith("data: ")) return ""
     const raw = line.slice(6).trim()
     if (raw === "[DONE]") return ""
@@ -334,8 +288,8 @@ export async function POST(req: NextRequest) {
       return handleAnthropicWithTools(trimmed, model, toolsEnabled)
     }
 
-    // Tool-capable cloud providers (Groq 70B, Grok 3, Ollama Cloud big models)
-    if (toolsEnabled && (provider === "groq" || provider === "xai" || provider === "ollama-cloud")) {
+    // Tool-capable OpenAI-compatible providers
+    if (toolsEnabled) {
       return handleOpenAIWithTools(trimmed, model, provider)
     }
 
@@ -349,11 +303,7 @@ export async function POST(req: NextRequest) {
 
     if (!stream) {
       const data = await response.json()
-      let content = ""
-      if (provider === "xai" || provider === "groq" || provider === "ollama-cloud")
-        content = data.choices?.[0]?.message?.content || "No response"
-      else
-        content = data.message?.content || "No response"
+      const content = data.choices?.[0]?.message?.content || "No response"
       return NextResponse.json({ content })
     }
 

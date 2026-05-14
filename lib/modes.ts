@@ -21,18 +21,18 @@ export const MODES: ModeDef[] = [
   {
     id: "fast",
     label: "Fast",
-    sublabel: "Quick responses",
-    chatModel: "grok-3-mini",
+    sublabel: "Quick · cheapest paid",
+    chatModel: "deepseek-chat",
     councilEnabled: false,
-    councilAgentModel: "grok-3-mini",
+    councilAgentModel: "deepseek-chat",
   },
   {
     id: "expert",
     label: "Expert",
     sublabel: "Thinks hard",
-    chatModel: "grok-3",
+    chatModel: "deepseek-reasoner",
     councilEnabled: true,
-    councilAgentModel: "grok-3-mini",
+    councilAgentModel: "deepseek-chat",
   },
   {
     id: "heavy",
