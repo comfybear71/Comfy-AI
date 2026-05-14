@@ -735,6 +735,9 @@ export function ChatInterface() {
 
           <div className="flex-1" />
 
+          {/* Model picker */}
+          <ModelPicker selectedModel={selectedModel} onChange={handleModelChange} />
+
           {/* Stop */}
           {isLoading && (
             <button

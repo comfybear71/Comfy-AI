@@ -55,7 +55,7 @@ function shortenModelName(id: string): string {
 function CodeBlock({ children, className, ...props }: any) {
   const [copied, setCopied] = useState(false)
   const code = extractText(children).replace(/\n$/, "")
-  const language = className?.replace("language-", "") || "text"
+  const language = className?.replace("language-", "") ?? ""
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code)
@@ -63,6 +63,27 @@ function CodeBlock({ children, className, ...props }: any) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Inline code (no fenced block) — simple styled span, no box
+  if (!className) {
+    return (
+      <code className="font-mono text-[13.5px] text-emerald-300 bg-[#0e1117] px-1.5 py-0.5 rounded border border-gray-700/50">
+        {children}
+      </code>
+    )
+  }
+
+  // Plain "text" blocks — no language pill, no copy header overhead
+  if (language === "text" || language === "") {
+    return (
+      <div className="my-3 rounded-lg overflow-hidden border border-gray-700/60">
+        <pre className="bg-[#0a0d12] px-4 py-3 text-sm text-gray-200 font-mono overflow-x-auto leading-relaxed">
+          <code>{children}</code>
+        </pre>
+      </div>
+    )
+  }
+
+  // Full code block with language pill + copy button
   return (
     <div className="my-4 rounded-xl overflow-hidden border border-gray-700/80">
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#0e1117] border-b border-gray-700/60">
