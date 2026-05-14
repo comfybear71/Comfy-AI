@@ -59,8 +59,8 @@ export const MODELS: ModelDef[] = [
   { id: "mixtral-8x7b-32768",      name: "Mixtral 8x7B",     description: "Groq · MoE · 32k ctx · free",icon: Brain,    provider: "groq",      vision: false, tier: "free"     },
 
   // ── DeepSeek (direct API · very cheap) ──────────────────────────────────────
-  { id: "deepseek-chat",           name: "DeepSeek V3",      description: "Best value · 64k ctx",       icon: Code,     provider: "deepseek",  vision: false, tier: "budget",   inputPer1M: 0.14,  outputPer1M: 0.28  },
-  { id: "deepseek-reasoner",       name: "DeepSeek R1",      description: "Chain-of-thought reasoning", icon: Brain,    provider: "deepseek",  vision: false, tier: "standard", inputPer1M: 0.55,  outputPer1M: 2.19  },
+  { id: "deepseek-v4-flash",       name: "DeepSeek V4 Flash", description: "Fast · best value · 64k ctx",  icon: Zap,   provider: "deepseek",  vision: false, tier: "budget",   inputPer1M: 0.14,  outputPer1M: 0.28  },
+  { id: "deepseek-v4-pro",         name: "DeepSeek V4 Pro",   description: "Flagship · reasoning · 64k",  icon: Brain, provider: "deepseek",  vision: false, tier: "standard", inputPer1M: 0.55,  outputPer1M: 2.19  },
 
   // ── Anthropic (Claude) ───────────────────────────────────────────────────────
   { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5", description: "Fast & cheap · 200k ctx", icon: Zap,      provider: "anthropic", vision: true,  tier: "budget",   inputPer1M: 0.25,  outputPer1M: 1.25  },
@@ -73,9 +73,10 @@ export const MODELS: ModelDef[] = [
   { id: "grok-4-0",                 name: "Grok 4",           description: "Most capable · 256k ctx",   icon: Sparkles, provider: "xai",       vision: true,  tier: "premium",  inputPer1M: 3,     outputPer1M: 15    },
 
   // ── Ollama Cloud (large open models) ────────────────────────────────────────
-  { id: "deepseek-v3.1:671b-cloud", name: "DeepSeek V3.1 671B", description: "Massive · top coder",    icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.27, outputPer1M: 1.10  },
-  { id: "qwen3-coder:480b-cloud",   name: "Qwen 3 Coder 480B",  description: "480B · code expert",     icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.50, outputPer1M: 2.00  },
-  { id: "kimi-k2:1t-cloud",         name: "Kimi K2",             description: "1T params · reasoning", icon: Sparkles, provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.60, outputPer1M: 2.50  },
+  { id: "deepseek-v4-pro",          name: "DeepSeek V4 Pro",     description: "Flagship · best quality",    icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.27, outputPer1M: 1.10  },
+  { id: "deepseek-v4-flash",        name: "DeepSeek V4 Flash",   description: "Faster · cheaper",           icon: Code,     provider: "ollama-cloud", vision: false, tier: "budget",   inputPer1M: 0.10, outputPer1M: 0.40  },
+  { id: "qwen3-coder:480b-cloud",   name: "Qwen 3 Coder 480B",   description: "480B · code expert",         icon: Code,     provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.50, outputPer1M: 2.00  },
+  { id: "kimi-k2:1t-cloud",         name: "Kimi K2",             description: "1T params · reasoning",      icon: Sparkles, provider: "ollama-cloud", vision: false, tier: "standard", inputPer1M: 0.60, outputPer1M: 2.50  },
 ]
 
 export const PROVIDER_LABELS: Record<Provider, string> = Object.fromEntries(
@@ -108,8 +109,8 @@ export const COUNCIL_FALLBACK_MODEL = "grok-3-mini"
 
 export const COUNCIL_DEFAULT_MODELS: Record<string, string> = {
   planner:  "grok-3-mini",
-  coder:    "deepseek-chat",           // cheap + excellent coder
-  reviewer: "llama-3.3-70b-versatile", // free
-  security: "llama-3.3-70b-versatile", // free
-  perf:     "llama-3.1-8b-instant",    // free · fastest
+  coder:    "deepseek-v4-flash",
+  reviewer: "llama-3.3-70b-versatile",
+  security: "llama-3.3-70b-versatile",
+  perf:     "llama-3.1-8b-instant",
 }
