@@ -12,6 +12,7 @@ import { PRModal } from "@/components/pr-modal"
 import { PRStatusBanner } from "@/components/pr-status-banner"
 import { MODELS, getBestVisionModel, getModel, DEFAULT_MODEL_ID } from "@/lib/models"
 import { MODES, MODE_MAP, DEFAULT_MODE, type AppMode } from "@/lib/modes"
+import { DEFAULT_MEMORY, buildMemoryContext, getGreeting, type MemoryData } from "@/lib/memory"
 import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
@@ -88,6 +89,9 @@ export function ChatInterface() {
 
   // Follow-up suggestion chips
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({})
+
+  // Memory + personalization
+  const [memory, setMemory] = useState<MemoryData>(DEFAULT_MEMORY)
 
   // Council — auto-triggers after every AI response
   const [councilOpen, setCouncilOpen] = useState(false)
@@ -167,6 +171,7 @@ export function ChatInterface() {
       const s = data.settings ?? {}
       if (s.selectedModel) setSelectedModel(s.selectedModel)
       if (s.mode && MODE_MAP[s.mode as AppMode]) setMode(s.mode as AppMode)
+      if (s.memory) setMemory(s.memory)
 
       // Docs — auto-enable all on first visit (no saved preference yet)
       const docs: string[] = Array.isArray(docList) ? docList : []
@@ -402,10 +407,16 @@ export function ChatInterface() {
             content: `You are assisting with the GitHub repository ${selectedRepo.full_name} (default branch: ${selectedRepo.default_branch}).`,
           })
         }
-        // Inject docs context — skip for local Ollama models (large context slows them down)
-        const isCloudModel = model.startsWith("claude-") || model.startsWith("grok-")
+        // Inject docs context
+        const isCloudModel = !model.startsWith("llama") && !model.startsWith("mistral") && !model.startsWith("phi")
         if (docsContext && isCloudModel) {
           contextMessages.unshift({ role: "system", content: docsContext })
+        }
+
+        // Inject memory context (always — this is a personal assistant)
+        const memCtx = buildMemoryContext(memory)
+        if (memCtx) {
+          contextMessages.unshift({ role: "system", content: memCtx })
         }
 
         const res = await fetch("/api/chat", {
@@ -730,8 +741,10 @@ export function ChatInterface() {
                   <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
                     <Sparkles className="w-8 h-8 text-emerald-400" />
                   </div>
-                  <h1 className="text-3xl font-semibold text-gray-100 mb-3">Welcome to Comfy AI</h1>
-                  <p className="text-gray-400 text-lg">Your comfortable space for coding, creating, and conversing.</p>
+                  <h1 className="text-3xl font-semibold text-gray-100 mb-3">
+                    {getGreeting(memory.preferredName)}
+                  </h1>
+                  <p className="text-gray-500 text-base">Ready when you are.</p>
                 </div>
               </div>
             ) : (

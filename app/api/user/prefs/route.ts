@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { getDb } from "@/lib/db"
 import { userPrefs } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+import type { MemoryData } from "@/lib/memory"
 
-// Placeholder until auth is added
 const DEFAULT_USER_ID = "default"
 
 export interface UserSettings {
-  selectedRepo?: string | null       // full_name e.g. "owner/repo"
-  selectedModel?: string | null      // model id
-  activeDocFiles?: string[]          // docs to include as context
+  selectedRepo?: string | null
+  selectedModel?: string | null
+  mode?: string | null
+  activeDocFiles?: string[]
+  memory?: MemoryData
 }
 
 export async function GET() {
