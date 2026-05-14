@@ -65,7 +65,7 @@ function CodeBlock({ children, className, ...props }: any) {
 
   return (
     <div className="my-4 rounded-xl overflow-hidden border border-gray-700/80">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-gray-700/60">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0e1117] border-b border-gray-700/60">
         <span className="text-[11px] px-2 py-0.5 bg-emerald-500/15 text-emerald-400 rounded-md font-mono font-semibold border border-emerald-500/20">
           {language}
         </span>
@@ -80,7 +80,7 @@ function CodeBlock({ children, className, ...props }: any) {
           )}
         </button>
       </div>
-      <pre className="!mt-0 !rounded-t-none bg-[#0d1117] !p-4 overflow-x-auto text-sm leading-relaxed">
+      <pre className="!mt-0 !rounded-t-none bg-[#0a0d12] !p-4 overflow-x-auto text-sm leading-relaxed">
         <code className={className} {...props}>
           {children}
         </code>
@@ -118,7 +118,7 @@ function Table({ children }: any) {
       <div className="hidden sm:block border border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           {tableHead && (
-            <thead className="bg-[#0d1117] border-b border-gray-700">
+            <thead className="bg-[#0a0d12] border-b border-gray-700">
               {tableHead.props.children}
             </thead>
           )}
@@ -132,7 +132,7 @@ function Table({ children }: any) {
           const fieldText = extractText(cells[0])
           const valueText = extractText(cells[1])
           return (
-            <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0d1117]">
+            <div key={idx} className="border border-gray-700 rounded-lg p-3 bg-[#0a0d12]">
               <div className="text-xs font-bold text-emerald-400 mb-2 uppercase">{fieldText}</div>
               <div className="text-sm text-gray-200 break-words font-mono mb-2">{valueText}</div>
               {valueText && (
@@ -173,7 +173,7 @@ const mdComponents = {
   em:         ({ children }: any) => <em className="italic text-gray-300">{children}</em>,
   blockquote: ({ children }: any) => <blockquote className="border-l-4 border-emerald-500/40 pl-4 my-3 text-gray-400 italic">{children}</blockquote>,
   hr:         () => <hr className="border-gray-700/60 my-5" />,
-  thead:      ({ children }: any) => <thead className="bg-[#0d1117]">{children}</thead>,
+  thead:      ({ children }: any) => <thead className="bg-[#0a0d12]">{children}</thead>,
   th:         ({ children }: any) => <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-700">{children}</th>,
   td:         ({ children }: any) => <td className="px-4 py-2.5 text-sm text-gray-300 border-b border-gray-700/40">{children}</td>,
 }
@@ -305,7 +305,7 @@ export function Message({
                   <button
                     key={i}
                     onClick={() => onSuggest?.(s)}
-                    className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-gray-300 bg-[#161b22] border border-gray-700 rounded-xl hover:border-emerald-500/50 hover:text-gray-100 hover:bg-[#1c2129] transition-all text-left leading-snug"
+                    className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-gray-300 bg-[#0e1117] border border-gray-700 rounded-xl hover:border-emerald-500/50 hover:text-gray-100 hover:bg-[#1c2129] transition-all text-left leading-snug"
                   >
                     <CornerDownRight className="w-3 h-3 text-gray-500 shrink-0" />
                     {s}

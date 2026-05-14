@@ -612,7 +612,7 @@ export function ChatInterface() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-dvh bg-[#0d1117]">
+    <div className="flex h-dvh bg-[#080b10]">
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -634,7 +634,7 @@ export function ChatInterface() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-gray-700 bg-[#161b22] px-3 py-2 flex items-center gap-2 min-w-0 h-12">
+        <div className="border-b border-white/[0.06] bg-[#080b10] px-3 py-2 flex items-center gap-2 min-w-0 h-12">
           {/* Hamburger */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -737,14 +737,14 @@ export function ChatInterface() {
           <div className="flex-1 flex flex-col min-w-0">
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center px-4">
-                <div className="text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
-                    <Sparkles className="w-8 h-8 text-emerald-400" />
+                <div className="text-center select-none">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/[0.08] border border-emerald-500/[0.12] flex items-center justify-center mx-auto mb-8">
+                    <Sparkles className="w-7 h-7 text-emerald-400/80" />
                   </div>
-                  <h1 className="text-3xl font-semibold text-gray-100 mb-3">
+                  <h1 className="text-[2rem] font-semibold tracking-tight text-white/90 mb-2">
                     {getGreeting(memory.preferredName)}
                   </h1>
-                  <p className="text-gray-500 text-base">Ready when you are.</p>
+                  <p className="text-white/30 text-[15px] font-light">What are we building today?</p>
                 </div>
               </div>
             ) : (

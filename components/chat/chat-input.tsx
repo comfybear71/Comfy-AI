@@ -132,7 +132,7 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
   }
 
   return (
-    <div className="border-t border-gray-700 bg-[#0d1117] p-4">
+    <div className="border-t border-white/[0.06] bg-[#080b10] p-4">
       <div className="max-w-3xl mx-auto relative">
         {/* Slash command menu */}
         {showSlashMenu && (
@@ -164,7 +164,7 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
           </div>
         )}
 
-        <div className="relative flex flex-col bg-[#161b22] rounded-2xl border border-gray-700 focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/50 transition-all">
+        <div className="relative flex flex-col bg-[#0e1117] rounded-2xl border border-white/[0.08] input-glow transition-all">
           {/* Text area row */}
           <div className="flex items-end gap-2 p-2">
             <input
@@ -224,8 +224,8 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
           </div>
         )}
 
-        <p className="text-center text-xs text-gray-600 mt-2">
-          Comfy AI can make mistakes. Verify important information.
+        <p className="text-center text-[11px] text-white/15 mt-2">
+          Comfy AI · Personal Assistant
         </p>
       </div>
     </div>
