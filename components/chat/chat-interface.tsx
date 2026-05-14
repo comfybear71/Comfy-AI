@@ -12,7 +12,7 @@ import { PRModal } from "@/components/pr-modal"
 import { PRStatusBanner } from "@/components/pr-status-banner"
 import { MODELS, getBestVisionModel, getModel, DEFAULT_MODEL_ID } from "@/lib/models"
 import { MODES, MODE_MAP, DEFAULT_MODE, type AppMode } from "@/lib/modes"
-import { DEFAULT_MEMORY, buildMemoryContext, getGreeting, type MemoryData } from "@/lib/memory"
+import { DEFAULT_MEMORY, buildMemoryContext, getGreeting, type MemoryData, type RecentSession, type FeedbackEntry } from "@/lib/memory"
 import { VISION_MODELS } from "@/lib/tokens"
 import {
   Sparkles, ChevronDown, Github, Menu,
@@ -110,13 +110,48 @@ export function ChatInterface() {
   // Save is handled directly inside handleSend (not via effect) to avoid
   // closure race conditions when the user switches repos mid-stream.
 
+  // ── Session continuity ────────────────────────────────────────────────────
+  const generateSessionSummary = useCallback(async (msgs: { role: string; content: string }[]) => {
+    if (msgs.length < 2) return
+    try {
+      const res = await fetch("/api/sessions/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: msgs }),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data.summary) return
+      const session: RecentSession = {
+        date: new Date().toISOString(),
+        summary: data.summary,
+        messageCount: msgs.length,
+      }
+      setMemory((prev) => {
+        const sessions = [session, ...(prev.recentSessions ?? [])].slice(0, 5)
+        const next = { ...prev, recentSessions: sessions }
+        savePrefs({ settings: { memory: next } })
+        return next
+      })
+    } catch {}
+  }, [])
+
   // ── History button handlers ──────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
-    setMessages([])
+    // Capture current messages before clearing for summary generation
+    setMessages((prev) => {
+      if (prev.length >= 2) {
+        const plain = prev
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role, content: m.content }))
+        generateSessionSummary(plain)
+      }
+      return []
+    })
     setConversationId(null)
     conversationIdRef.current = null
     lastSavedCountRef.current = 0
-  }, [])
+  }, [generateSessionSummary])
 
   const handleLoadConversation = useCallback((conv: { id: string; messages: { role: string; content: string; createdAt: string }[] }) => {
     const loaded: MessageProps[] = conv.messages
@@ -239,6 +274,19 @@ export function ChatInterface() {
     setSelectedModel(modelId)
     savePrefs({ settings: { selectedModel: modelId } })
   }, [])
+
+  // ── Feedback loop ─────────────────────────────────────────────────────────
+  const handleFeedback = useCallback((messageId: string, vote: "up" | "down") => {
+    setMemory((prev) => {
+      const msg = messages.find((m) => m.id === messageId)
+      const snippet = (msg?.content ?? "").slice(0, 80).replace(/\n/g, " ")
+      const entry: FeedbackEntry = { messageId, vote, snippet, date: new Date().toISOString() }
+      const log = [...(prev.feedbackLog ?? []), entry].slice(-50)
+      const next = { ...prev, feedbackLog: log }
+      savePrefs({ settings: { memory: next } })
+      return next
+    })
+  }, [messages])
 
   // ── Save activeDocFiles to Neon ───────────────────────────────────────────
   const toggleDoc = useCallback((file: string) => {
@@ -575,14 +623,23 @@ export function ChatInterface() {
             {
               id: Date.now().toString(),
               role: "assistant" as const,
-              content: `**Available commands:**\n\n| Command | Description |\n|---|---|\n| \`/clear\` | Clear conversation |\n| \`/model <id>\` | Switch model |\n| \`/repo <name>\` | Select GitHub repo |\n| \`/pr\` | Open Create PR modal |\n| \`/docs\` | Toggle docs context panel |\n| \`/help\` | Show this message |`,
+              content: `**Available commands:**\n\n| Command | Description |\n|---|---|\n| \`/clear\` | Clear conversation |\n| \`/model <id>\` | Switch model |\n| \`/repo <name>\` | Select GitHub repo |\n| \`/pr\` | Open Create PR modal |\n| \`/docs\` | Toggle docs context panel |\n| \`/improve\` | Self-audit: AI reads codebase and proposes improvements |\n| \`/help\` | Show this message |`,
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             },
           ])
           break
+        case "improve":
+          handleSend(
+            `Please perform a self-audit of the Comfy AI codebase (comfybear71/Comfy-AI on GitHub). ` +
+            `Use your GitHub tools to read key files — especially lib/models.ts, lib/memory.ts, app/api/chat/route.ts, and components/chat/. ` +
+            `Identify the top 3 most impactful improvements you can make right now: real bugs, broken features, UX friction points, or significant code quality issues. ` +
+            `For each, cite the exact file and line numbers and show the specific code change needed. Be concrete, not vague. ` +
+            `After presenting the findings, ask if I'd like you to implement any of them on a new branch.`
+          )
+          break
       }
     },
-    [repos, selectedRepo, handleModelChange, handleSelectRepo]
+    [repos, selectedRepo, handleModelChange, handleSelectRepo, handleSend]
   )
 
   // ── Webhook event handler ─────────────────────────────────────────────────
@@ -753,6 +810,7 @@ export function ChatInterface() {
                 isLoading={isLoading}
                 suggestions={suggestions}
                 onSuggest={handleSend}
+                onFeedback={handleFeedback}
               />
             )}
             <ChatInput
