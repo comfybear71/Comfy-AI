@@ -185,14 +185,14 @@ const mdComponents = {
   pre:        ({ children }: any) => <>{children}</>,
   code:       CodeBlock,
   table:      Table,
-  h1:         ({ children }: any) => <h1 className="text-[1.6rem] font-bold text-gray-100 mt-7 mb-3 leading-tight tracking-tight">{children}</h1>,
-  h2:         ({ children }: any) => <h2 className="text-[1.35rem] font-semibold text-gray-100 mt-6 mb-2.5 leading-tight">{children}</h2>,
-  h3:         ({ children }: any) => <h3 className="text-lg font-semibold text-gray-200 mt-5 mb-2 leading-snug">{children}</h3>,
-  h4:         ({ children }: any) => <h4 className="text-base font-semibold text-gray-200 mt-4 mb-1.5">{children}</h4>,
-  p:          ({ children }: any) => <p className="text-[15px] text-gray-200 leading-[1.75] mb-3 last:mb-0">{children}</p>,
-  ul:         ({ children }: any) => <ul className="my-3 space-y-1.5 pl-5 list-disc marker:text-emerald-400">{children}</ul>,
-  ol:         ({ children }: any) => <ol className="my-3 space-y-1.5 pl-5 list-decimal marker:text-emerald-400">{children}</ol>,
-  li:         ({ children }: any) => <li className="text-[15px] text-gray-200 leading-[1.75] pl-1">{children}</li>,
+  h1:         ({ children }: any) => <h1 className="text-[1.65rem] font-bold text-white mt-7 mb-3 leading-tight tracking-tight">{children}</h1>,
+  h2:         ({ children }: any) => <h2 className="text-[1.35rem] font-semibold text-white mt-6 mb-2.5 leading-tight">{children}</h2>,
+  h3:         ({ children }: any) => <h3 className="text-[1.1rem] font-semibold text-gray-100 mt-5 mb-2 leading-snug">{children}</h3>,
+  h4:         ({ children }: any) => <h4 className="text-base font-semibold text-gray-100 mt-4 mb-1.5">{children}</h4>,
+  p:          ({ children }: any) => <p className="text-[16px] text-gray-100 leading-[1.8] mb-3.5 last:mb-0">{children}</p>,
+  ul:         ({ children }: any) => <ul className="my-3.5 space-y-2 pl-5 list-disc marker:text-emerald-400">{children}</ul>,
+  ol:         ({ children }: any) => <ol className="my-3.5 space-y-2 pl-5 list-decimal marker:text-emerald-400">{children}</ol>,
+  li:         ({ children }: any) => <li className="text-[16px] text-gray-100 leading-[1.8] pl-1">{children}</li>,
   a:          ({ href, children }: any) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors">{children}</a>,
   strong:     ({ children }: any) => <strong className="font-semibold text-gray-100">{children}</strong>,
   em:         ({ children }: any) => <em className="italic text-gray-300">{children}</em>,
@@ -264,7 +264,7 @@ export function Message({
               ))}
             </div>
           )}
-          <div className="bg-emerald-600 text-white px-4 py-3 rounded-2xl rounded-br-md text-[15px] leading-relaxed whitespace-pre-wrap shadow-sm">
+          <div className="bg-emerald-600 text-white px-4 py-3 rounded-2xl rounded-br-md text-[16px] leading-[1.7] whitespace-pre-wrap shadow-sm">
             {content}
           </div>
           {timestamp && (
