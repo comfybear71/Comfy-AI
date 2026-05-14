@@ -38,7 +38,7 @@ export const MODES: ModeDef[] = [
     id: "heavy",
     label: "Heavy",
     sublabel: "Team of Experts",
-    chatModel: "grok-3",
+    chatModel: "grok-4-0",
     councilEnabled: true,
     councilAgentModel: "grok-3",
   },

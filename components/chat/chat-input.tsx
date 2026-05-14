@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Send, Paperclip, X, AlertCircle } from "lucide-react"
+import { Send, Paperclip, X, AlertCircle, Mic, MicOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SlashMenu, parseSlashCommand, type SlashCommand } from "./slash-commands"
@@ -15,19 +15,56 @@ interface ChatInputProps {
   isLoading?: boolean
   mode: AppMode
   onModeChange: (mode: AppMode) => void
+  droppedImages?: string[]
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const MAX_IMAGES = 5
 
-export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onModeChange }: ChatInputProps) {
+export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onModeChange, droppedImages }: ChatInputProps) {
   const [input, setInput] = useState("")
   const [images, setImages] = useState<string[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [slashQuery, setSlashQuery] = useState("")
+  const [isListening, setIsListening] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const recognitionRef = useRef<any>(null)
+
+  // Merge images dropped from outside (drag-and-drop on the chat area)
+  useEffect(() => {
+    if (droppedImages && droppedImages.length > 0) {
+      setImages((prev) => [...prev, ...droppedImages].slice(0, MAX_IMAGES))
+    }
+  }, [droppedImages])
+
+  const toggleVoice = () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+      return
+    }
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRec) {
+      setAttachError("Voice input not supported in this browser")
+      return
+    }
+    const rec = new SpeechRec()
+    rec.continuous = false
+    rec.interimResults = false
+    rec.lang = "en-AU"
+    rec.onresult = (e: any) => {
+      const transcript: string = e.results[0][0].transcript
+      setInput((prev) => prev ? `${prev} ${transcript}` : transcript)
+      setIsListening(false)
+    }
+    rec.onerror = () => setIsListening(false)
+    rec.onend = () => setIsListening(false)
+    recognitionRef.current = rec
+    rec.start()
+    setIsListening(true)
+  }
 
   const adjustHeight = () => {
     const textarea = textareaRef.current
@@ -87,7 +124,7 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
 
   const handleSlashSelect = (cmd: SlashCommand) => {
     setShowSlashMenu(false)
-    if (cmd.name === "clear" || cmd.name === "pr" || cmd.name === "docs" || cmd.name === "help" || cmd.name === "improve") {
+    if (cmd.name === "clear" || cmd.name === "pr" || cmd.name === "docs" || cmd.name === "help" || cmd.name === "improve" || cmd.name === "memory") {
       onCommand(cmd.name, "")
       setInput("")
     } else {
@@ -195,6 +232,21 @@ export function ChatInput({ onSend, onCommand, onCouncil, isLoading, mode, onMod
               className="flex-1 resize-none bg-transparent border-0 p-2 text-base text-gray-100 focus:ring-0 focus-visible:ring-0 outline-none placeholder:text-gray-500 min-h-[40px] max-h-[200px]"
               disabled={isLoading}
             />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleVoice}
+              title={isListening ? "Stop listening" : "Voice input"}
+              className={cn(
+                "shrink-0 h-9 w-9 transition-all",
+                isListening
+                  ? "text-red-400 animate-pulse"
+                  : "text-gray-400 hover:text-gray-100"
+              )}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </Button>
 
             <Button
               onClick={handleSubmit}

@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CouncilPanel } from "./council/CouncilPanel"
+import { MemoryPanel } from "./memory-panel"
 
 interface GitHubFileItem {
   name: string
@@ -92,6 +93,17 @@ export function ChatInterface() {
 
   // Memory + personalization
   const [memory, setMemory] = useState<MemoryData>(DEFAULT_MEMORY)
+
+  // Memory panel
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(false)
+
+  // Drag-and-drop
+  const [isDragging, setIsDragging] = useState(false)
+  const [droppedImages, setDroppedImages] = useState<string[]>([])
+  const dragCounterRef = useRef(0)
+
+  // /improve auto-implement tracking
+  const improveJustRanRef = useRef(false)
 
   // Council — auto-triggers after every AI response
   const [councilOpen, setCouncilOpen] = useState(false)
@@ -493,6 +505,8 @@ export function ChatInterface() {
 
         // Generate follow-up suggestion chips (non-blocking, best-effort)
         if (full) {
+          const wasImprove = improveJustRanRef.current
+          improveJustRanRef.current = false
           fetch("/api/suggestions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -500,11 +514,17 @@ export function ChatInterface() {
           })
             .then((r) => r.ok ? r.json() : null)
             .then((data) => {
-              if (Array.isArray(data?.suggestions) && data.suggestions.length > 0) {
-                setSuggestions({ [assistantId]: data.suggestions })
+              const chips: string[] = Array.isArray(data?.suggestions) ? data.suggestions : []
+              if (wasImprove) {
+                chips.unshift("Implement the top fix — create a branch and commit the change")
+              }
+              if (chips.length > 0) setSuggestions({ [assistantId]: chips })
+            })
+            .catch(() => {
+              if (wasImprove) {
+                setSuggestions({ [assistantId]: ["Implement the top fix — create a branch and commit the change"] })
               }
             })
-            .catch(() => {})
         }
 
         // Auto-trigger Agent Council for expert/heavy modes only
@@ -629,13 +649,16 @@ export function ChatInterface() {
           ])
           break
         case "improve":
+          improveJustRanRef.current = true
           handleSend(
             `Please perform a self-audit of the Comfy AI codebase (comfybear71/Comfy-AI on GitHub). ` +
             `Use your GitHub tools to read key files — especially lib/models.ts, lib/memory.ts, app/api/chat/route.ts, and components/chat/. ` +
             `Identify the top 3 most impactful improvements you can make right now: real bugs, broken features, UX friction points, or significant code quality issues. ` +
-            `For each, cite the exact file and line numbers and show the specific code change needed. Be concrete, not vague. ` +
-            `After presenting the findings, ask if I'd like you to implement any of them on a new branch.`
+            `For each, cite the exact file and line numbers and show the specific code change needed. Be concrete, not vague.`
           )
+          break
+        case "memory":
+          setMemoryPanelOpen(true)
           break
       }
     },
@@ -667,9 +690,66 @@ export function ChatInterface() {
     [handleSend]
   )
 
+  // ── Drag-and-drop image anywhere ─────────────────────────────────────────
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounterRef.current++
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    dragCounterRef.current = 0
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"))
+    if (files.length === 0) return
+    const results: string[] = []
+    let processed = 0
+    files.slice(0, 5).forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string
+        if (result) results.push(result.split(",")[1] || result)
+        processed++
+        if (processed === Math.min(files.length, 5)) {
+          setDroppedImages(results)
+          setTimeout(() => setDroppedImages([]), 100) // clear after ChatInput consumes them
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // ── Memory update handler ─────────────────────────────────────────────────
+  const handleMemoryUpdate = useCallback((next: typeof memory) => {
+    setMemory(next)
+    savePrefs({ settings: { memory: next } })
+  }, [])
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-dvh bg-[#080b10]">
+    <div
+      className="flex h-dvh bg-[#080b10] relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-emerald-500/5 border-2 border-dashed border-emerald-500/40 pointer-events-none">
+          <div className="text-center">
+            <div className="text-4xl mb-2">📷</div>
+            <p className="text-emerald-400 font-semibold text-lg">Drop images to attach</p>
+          </div>
+        </div>
+      )}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -823,6 +903,7 @@ export function ChatInterface() {
               isLoading={isLoading}
               mode={mode}
               onModeChange={handleModeChange}
+              droppedImages={droppedImages}
             />
           </div>
 
@@ -1026,6 +1107,14 @@ export function ChatInterface() {
         />
       )}
 
+      {memoryPanelOpen && (
+        <MemoryPanel
+          memory={memory}
+          onUpdate={handleMemoryUpdate}
+          onClose={() => setMemoryPanelOpen(false)}
+        />
+      )}
+
       <CouncilPanel
         task={councilTask}
         selectedModel={selectedModel}
@@ -1033,7 +1122,7 @@ export function ChatInterface() {
         onClose={() => setCouncilOpen(false)}
         onApprove={(plan) => {
           setCouncilOpen(false)
-          skipCouncilRef.current = true // don't re-trigger council for the AI's implementation response
+          skipCouncilRef.current = true
           handleSend(`The Agent Council has approved this plan — please implement it:\n\n${plan}`)
         }}
       />

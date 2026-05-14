@@ -3,7 +3,7 @@
 import React from "react"
 import { cn } from "@/lib/utils"
 import {
-  Trash2, Cpu, HelpCircle, GitBranch, GitPullRequest, FileText, Zap,
+  Trash2, Cpu, HelpCircle, GitBranch, GitPullRequest, FileText, Zap, Brain,
 } from "lucide-react"
 
 export interface SlashCommand {
@@ -21,6 +21,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "docs",   description: "Toggle project docs as context",   usage: "/docs",            icon: FileText      },
   { name: "help",    description: "Show available commands",          usage: "/help",            icon: HelpCircle    },
   { name: "improve", description: "Self-audit: AI reads the codebase and proposes improvements", usage: "/improve", icon: Zap },
+  { name: "memory",  description: "View and edit stored memory — names, projects, facts",         usage: "/memory",  icon: Brain },
 ]
 
 interface SlashMenuProps {
